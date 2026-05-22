@@ -506,18 +506,27 @@ let records=[], customFields=[], currentTab='all', sortKey='id', sortDir=1, deta
 let currentUser = null; // { account, name, role, token, assignedIds }
 
 // ══════════════════════════════════════════════════════
-// API 工具
+// API 工具（全部改用 GET，避免 CORS 問題）
 // ══════════════════════════════════════════════════════
 async function apiGet(params) {
-  const q = new URLSearchParams({ ...params, account: currentUser?.account||'', token: currentUser?.token||'' });
-  const res = await fetch(API_URL + '?' + q);
+  const q = new URLSearchParams({
+    ...params,
+    account: currentUser?.account||'',
+    token:   currentUser?.token||''
+  });
+  const res = await fetch(API_URL + '?' + q, { method:'GET' });
   return res.json();
 }
 async function apiPost(payload) {
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    body: JSON.stringify({ ...payload, account: currentUser?.account||'', token: currentUser?.token||'' })
-  });
+  // 改用 GET + 參數方式，避免 CORS preflight 問題
+  const params = {
+    ...payload,
+    account: currentUser?.account||'',
+    token:   currentUser?.token||'',
+    _data:   JSON.stringify(payload)
+  };
+  const q = new URLSearchParams(params);
+  const res = await fetch(API_URL + '?' + q, { method:'GET' });
   return res.json();
 }
 
@@ -615,15 +624,12 @@ async function handleGoogleLogin(googleResponse) {
     const name    = payload.name;
 
     // 用 Gmail 向 Apps Script 驗證
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        action:   'loginWithGoogle',
-        gmail:    gmail,
-        name:     name,
-        credential: googleResponse.credential
-      })
+    const q = new URLSearchParams({
+      action: 'loginWithGoogle',
+      gmail:  gmail,
+      name:   name
     });
+    const res = await fetch(API_URL + '?' + q, { method:'GET' });
     const data = await res.json();
 
     if (data.ok) {
@@ -645,10 +651,8 @@ async function doLogin() {
   if (!account || !pwd) { showLoginError('請填入帳號和密碼'); return; }
   showLoginError('驗證中…');
   try {
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action:'login', account, password:pwd })
-    });
+    const q = new URLSearchParams({ action:'login', account, password:pwd });
+    const res = await fetch(API_URL + '?' + q, { method:'GET' });
     const data = await res.json();
     if (data.ok) {
       currentUser = { account:data.account, name:data.name, role:data.role, token:data.token, assignedIds:data.assignedIds||[] };
