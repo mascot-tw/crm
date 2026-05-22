@@ -507,7 +507,10 @@ const FIXED_FIELDS = [
   {key:'total',   label:'累計採購金額（NT$）', type:'text', req:false, sec:'📅 跟進追蹤', half:true},
   {key:'source',  label:'資料來源管道',    type:'text',    req:false, sec:'📅 跟進追蹤', half:true},
   {key:'memo',    label:'🔑 跟進備忘錄（切入點）', type:'textarea', req:false, sec:'📅 跟進追蹤', half:false},
-  // 系統自動欄位（僅在詳細面板顯示，不出現在編輯表單）
+  // 系統自動欄位（唯讀，buildForm 會自動跳過，僅在詳細面板顯示）
+  {key:'createdBy',   label:'📌 建立者',     type:'readonly', req:false, sec:'📋 系統記錄', half:true},
+  {key:'lastUpdated', label:'🕐 最後儲存時間', type:'readonly', req:false, sec:'📋 系統記錄', half:true},
+  {key:'updatedBy',   label:'✏️ 最後儲存者', type:'readonly', req:false, sec:'📋 系統記錄', half:true},
 ];
 
 // ══════════════════════════════════════════════════════
@@ -575,13 +578,16 @@ async function apiGet(params) {
   return res.json();
 }
 async function apiPost(payload) {
-  // 用 GET + _data 參數，避免 CORS preflight
-  const q = new URLSearchParams({
+  // 直接展開所有參數為 GET URL（簡單可靠）
+  const flat = {
     action:  payload.action || '',
     account: currentUser?.account||'',
-    token:   currentUser?.token||'',
-    _data:   encodeURIComponent(JSON.stringify(payload))
-  });
+    token:   currentUser?.token||''
+  };
+  // 加入 _data（JSON 字串，後端解析用）
+  const jsonStr = JSON.stringify(payload);
+  flat._data = jsonStr;
+  const q = new URLSearchParams(flat);
   const res = await fetch(API_URL + '?' + q.toString(), { method:'GET', mode:'cors' });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
@@ -953,14 +959,14 @@ async function loadData() {
       if (recRes.records && recRes.records.length > 0) {
         records = recRes.records;
         toast('已載入 ' + records.length + ' 筆授權資料 ✓', 'success');
-      } else if (currentUser.role === 'admin') {
-        // admin 且 Sheet 為空：寫入初始資料
-        records = JSON.parse(JSON.stringify(INITIAL_DATA)).map(r => ({ ...r, assignedTo:'ALL', createdBy:'admin' }));
-        await apiPost({ action:'saveRecords', records });
-        toast('已將 ' + records.length + ' 筆初始資料同步到 Google Sheet ✓', 'success');
       } else {
-        records = [];
-        toast('目前尚無指派給您的客戶資料', 'info');
+        // Sheet 為空：顯示本地預設資料，不自動寫入（避免誤覆蓋）
+        records = JSON.parse(JSON.stringify(INITIAL_DATA));
+        if (currentUser.role === 'admin') {
+          toast('Google Sheet 尚無資料，顯示本地預設19筆。請點「🔄 重置資料」同步到 Sheet。', 'info');
+        } else {
+          toast('目前尚無指派給您的客戶資料', 'info');
+        }
       }
     } else {
       throw new Error(recRes.error || '載入失敗');
@@ -1446,7 +1452,7 @@ function buildForm(r){
   let html='';
   Object.entries(sections).forEach(([sec,flds])=>{
     html+=`<div class="fsec">${sec}</div><div class="fgrid">`;
-    flds.forEach(f=>{ if(f.type==='readonly') return; // 系統記錄不放表單
+    flds.forEach(f=>{ if(f.type==='readonly'||f.sec==='📋 系統記錄') return; // 系統記錄不放表單
       const val=r?(r[f.key]||''):(f.key==='grade'?'A':f.key==='status'?'未接觸':f.key==='group'?'A':f.key==='id'?generateClientId():f.key==='taxId'?'無':'');
       const wide=f.half===false?' wide':'';
       const req=f.req?'<span>*</span>':'';
