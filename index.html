@@ -695,7 +695,9 @@ async function handleGoogleLogin(googleResponse) {
       startAutoLogout();
       loadData();
     } else {
-      showLoginError(data.error || '此 Gmail 尚未獲得授權，請聯繫業務客服專線');
+      // Gmail 未授權 → 引導申請
+      showLoginError('此 Gmail 尚未授權，正在引導申請…');
+      setTimeout(() => showApplyScreen(gmail, name), 1200);
     }
   } catch(e) {
     showLoginError('Gmail 登入失敗，請改用帳號密碼登入');
@@ -728,6 +730,149 @@ async function doLogin() {
 function showLoginError(msg) {
   const el = document.getElementById('loginError');
   if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+
+// ── 申請帳號畫面 ─────────────────────────────
+function showApplyScreen(gmail, name) {
+  const old = document.getElementById('applyScreen');
+  if (old) old.remove();
+
+  const div = document.createElement('div');
+  div.id = 'applyScreen';
+  div.style.cssText = 'position:fixed;inset:0;background:#0d1421;z-index:1001;display:flex;align-items:center;justify-content:center;font-family:Noto Sans TC,sans-serif;';
+  div.innerHTML = `
+    <div style="background:#111927;border:1px solid #1e2d45;border-radius:16px;padding:36px;width:420px;box-shadow:0 20px 60px rgba(0,0,0,.6);">
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:32px;margin-bottom:8px;">📋</div>
+        <div style="font-size:17px;font-weight:700;color:#e8edf5;">申請加入 CRM 系統</div>
+        <div style="font-size:12px;color:#8899aa;margin-top:4px;">您的 Gmail 尚未獲得授權，請填寫以下資訊送出申請</div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;color:#8899aa;display:block;margin-bottom:4px;">Gmail 帳號</label>
+        <input type="text" value="${gmail}" readonly
+          style="width:100%;background:#162035;border:1px solid #1e2d45;border-radius:8px;color:#8899aa;padding:9px 12px;font-size:12px;font-family:inherit;box-sizing:border-box;cursor:not-allowed;">
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;color:#8899aa;display:block;margin-bottom:4px;">姓名 *</label>
+        <input id="applyName" type="text" value="${name||''}"
+          style="width:100%;background:#162035;border:1px solid #1e2d45;border-radius:8px;color:#e8edf5;padding:9px 12px;font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;"
+          placeholder="請輸入您的姓名">
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:11px;color:#8899aa;display:block;margin-bottom:4px;">申請原因（選填）</label>
+        <input id="applyReason" type="text"
+          style="width:100%;background:#162035;border:1px solid #1e2d45;border-radius:8px;color:#e8edf5;padding:9px 12px;font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;"
+          placeholder="例：新進業務員、合作廠商…">
+      </div>
+      <div id="applyMsg" style="color:#fbbf24;font-size:12px;text-align:center;margin-bottom:12px;display:none;"></div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="document.getElementById('applyScreen').remove();showLoginScreen();"
+          style="flex:1;background:transparent;border:1px solid #1e2d45;border-radius:8px;color:#8899aa;padding:10px;font-size:12px;font-family:inherit;cursor:pointer;">
+          返回登入
+        </button>
+        <button onclick="submitApply('${gmail}')"
+          style="flex:2;background:#1A7A6E;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;">
+          📨 送出申請
+        </button>
+      </div>
+      <div style="font-size:11px;color:#4A5568;text-align:center;margin-top:16px;">
+        申請後請等待管理者審核，核准後即可用 Gmail 登入
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+  setTimeout(()=>{ document.getElementById('applyName')?.focus(); }, 100);
+}
+
+async function submitApply(gmail) {
+  const name   = document.getElementById('applyName')?.value.trim();
+  const reason = document.getElementById('applyReason')?.value.trim();
+  const msgEl  = document.getElementById('applyMsg');
+  if (!name) { if(msgEl){msgEl.textContent='請填入姓名';msgEl.style.display='block';} return; }
+
+  if(msgEl){msgEl.textContent='送出中…';msgEl.style.display='block';}
+
+  try {
+    const res = await fetch(API_URL + '?' + new URLSearchParams({
+      action:'applyAccount', gmail, name, reason:reason||''
+    }));
+    const data = await res.json();
+    if (data.ok) {
+      if(msgEl){msgEl.style.color='#4ade80';msgEl.textContent='✅ 申請已送出！請等待管理者審核。';}
+      setTimeout(()=>{
+        document.getElementById('applyScreen')?.remove();
+        showLoginScreen();
+      }, 2500);
+    } else {
+      if(msgEl){msgEl.style.color='#f87171';msgEl.textContent=data.error||'送出失敗，請重試';}
+    }
+  } catch(e) {
+    if(msgEl){msgEl.style.color='#f87171';msgEl.textContent='連線失敗，請重試';}
+  }
+}
+
+// ── 待審核清單（帳號管理 Modal 內）─────────────
+let pendingUsers = [];
+
+async function renderPendingList() {
+  try {
+    const res = await apiGet({ action:'getPendingUsers' });
+    pendingUsers = (res.ok && res.pending) ? res.pending : [];
+  } catch(e) { pendingUsers = []; }
+
+  const existing = document.getElementById('pendingSection');
+  if (existing) existing.remove();
+
+  if (!pendingUsers.length) return;
+
+  const modalBody = document.querySelector('#userMgrOverlay .modal-body');
+  if (!modalBody) return;
+
+  const sec = document.createElement('div');
+  sec.id = 'pendingSection';
+  sec.style.cssText = 'margin-bottom:16px;';
+  sec.innerHTML = `
+    <div style="font-size:10px;font-weight:700;color:#f59e0b;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(245,158,11,.3);">
+      ⏳ 待審核申請（${pendingUsers.length} 筆）
+    </div>
+    ${pendingUsers.map(p=>`
+      <div style="background:#162035;border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:700;color:#fbbf24;">${p.gmail}</div>
+          <div style="font-size:11px;color:#8899aa;">${p.name} ${p.reason?'・'+p.reason:''}</div>
+          <div style="font-size:10px;color:#4A5568;">${p.appliedAt||''}</div>
+        </div>
+        <button onclick="approveUser('${p.gmail}','${p.name}')"
+          style="padding:5px 12px;border-radius:6px;background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.3);color:#4ade80;cursor:pointer;font-size:11px;font-weight:700;">
+          ✅ 核准
+        </button>
+        <button onclick="rejectUser('${p.gmail}')"
+          style="padding:5px 12px;border-radius:6px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.25);color:#f87171;cursor:pointer;font-size:11px;">
+          ❌ 拒絕
+        </button>
+      </div>`).join('')}`;
+  modalBody.insertBefore(sec, modalBody.firstChild);
+}
+
+async function approveUser(gmail, name) {
+  const role = 'sales'; // 預設核准為業務員
+  const res  = await apiPost({ action:'approveUser', gmail, name, role });
+  if (res.ok) {
+    toast(`✅ 已核准「${name}」(${gmail})，角色：業務員`, 'success');
+    const res2 = await apiGet({ action:'getUsers' });
+    if (res2.ok) { allUsers = res2.users; renderUserList(); }
+    renderPendingList();
+  } else {
+    toast('核准失敗：'+(res.error||''), 'error');
+  }
+}
+
+async function rejectUser(gmail) {
+  if (!confirm(`確定要拒絕「${gmail}」的申請嗎？`)) return;
+  const res = await apiPost({ action:'rejectUser', gmail });
+  if (res.ok) {
+    toast('已拒絕申請：'+gmail, 'info');
+    renderPendingList();
+  }
 }
 
 function updateTopbarUser() {
@@ -890,11 +1035,19 @@ let allUsers = [];
 
 async function openUserManager() {
   if (currentUser?.role !== 'admin') return;
-  showLoading('載入帳號…');
+  showLoading('載入帳號清單…');
   try {
     const res = await apiGet({ action:'getUsers' });
-    if (res.ok) allUsers = res.users;
-  } catch(e) {}
+    if (res.ok && res.users) {
+      allUsers = res.users;
+    } else {
+      toast('載入帳號失敗：'+(res.error||'未知錯誤'), 'error');
+      allUsers = [];
+    }
+  } catch(e) {
+    toast('連線失敗，請重試','error');
+    allUsers = [];
+  }
   hideLoading();
 
   let um = document.getElementById('userMgrOverlay');
@@ -938,6 +1091,7 @@ async function openUserManager() {
   }
 
   renderUserList();
+  renderPendingList();
   um.style.display = 'flex';
 }
 
@@ -1000,8 +1154,25 @@ async function editUser(account) {
   const newAssigned = prompt(`編輯「${u.name}」的指派客戶ID\n（逗號分隔，ALL=全部，空白=僅自己的）：`, u.assignedIds||'');
   if (newAssigned === null) return;
   const newPwd = prompt(`重設密碼（留空=保留原密碼）：`, '');
-  // 角色不可透過編輯修改，需在「新增」時設定或直接修改 Google Sheet
-  const res = await apiPost({ action:'saveUser', user:{ account:u.account, password:newPwd||'', role:u.role, name:u.name, assignedIds:newAssigned, active:true } });
+  // 角色修改（不能修改自己的角色）
+  let finalRole = u.role;
+  if (u.account !== currentUser?.account) {
+    const roleNow = u.role==='admin'?'管理者':u.role==='manager'?'業務長':'業務員';
+    const newRoleRaw = prompt(
+      `修改「${u.name}」的角色\n目前：${roleNow}\n\n請輸入新角色：\n  admin   = 👑 管理者\n  manager = ⭐ 業務長\n  sales   = 👤 業務員\n（留空保留原角色）`,
+      u.role
+    );
+    if (newRoleRaw !== null && newRoleRaw.trim()) {
+      if (['admin','manager','sales'].includes(newRoleRaw.trim())) {
+        finalRole = newRoleRaw.trim();
+      } else {
+        toast('角色輸入不正確，保留原角色','info');
+      }
+    }
+  } else {
+    toast('不能修改自己的角色','info');
+  }
+  const res = await apiPost({ action:'saveUser', user:{ account:u.account, password:newPwd||'', role:finalRole, name:u.name, assignedIds:newAssigned, active:true } });
   if (res.ok) {
     toast('已更新 ✓','success');
     const res2 = await apiGet({ action:'getUsers' });
