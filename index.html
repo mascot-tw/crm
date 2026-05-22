@@ -678,26 +678,42 @@ function updateTopbarUser() {
   const old = document.getElementById('userPill');
   if (old) old.remove();
 
+  const role    = currentUser.role;
+  const isAdmin = role === 'admin';
+  const isMgr   = role === 'manager';
+  const isSales = role === 'sales';
+
+  // 角色標示設定
+  const roleConfig = {
+    admin:   { icon:'👑', color:'var(--gold)',       label:'管理者' },
+    manager: { icon:'⭐', color:'var(--purple-light)', label:'業務長' },
+    sales:   { icon:'👤', color:'var(--teal-light)',  label:'業務員' }
+  };
+  const rc = roleConfig[role] || roleConfig.sales;
+
   const pill = document.createElement('div');
   pill.id = 'userPill';
   pill.className = 'pill';
-  const isAdmin = currentUser.role === 'admin';
-  pill.style.borderColor = isAdmin ? 'var(--gold)' : 'var(--teal)';
-  pill.innerHTML = `<span>${isAdmin ? '👑' : '👤'}</span><b style="color:${isAdmin ? 'var(--gold)' : 'var(--teal-light)'}">${currentUser.name}</b><span style="font-size:9px;color:var(--text-dim);margin-left:2px;">${isAdmin ? '管理者' : '業務員'}</span>`;
+  pill.style.borderColor = rc.color;
+  pill.innerHTML = `<span>${rc.icon}</span><b style="color:${rc.color}">${currentUser.name}</b><span style="font-size:9px;color:var(--text-dim);margin-left:2px;">${rc.label}</span>`;
   pills.insertBefore(pill, pills.firstChild);
 
   // 依角色顯示/隱藏功能按鈕
-  const btnCF    = document.getElementById('btnCF');
-  const btnReset = document.getElementById('btnReset');
-  const btnExport= document.getElementById('btnExport');
+  const btnCF     = document.getElementById('btnCF');
+  const btnReset  = document.getElementById('btnReset');
+  const btnExport = document.getElementById('btnExport');
 
+  // 自訂欄位：僅 admin
+  if (btnCF) btnCF.style.display = isAdmin ? '' : 'none';
+
+  // 匯出CSV：admin + manager
+  if (btnExport) btnExport.style.display = (isAdmin || isMgr) ? '' : 'none';
+
+  // 重置資料：admin + manager
+  if (btnReset) btnReset.style.display = (isAdmin || isMgr) ? '' : 'none';
+
+  // 帳號管理按鈕：僅 admin
   if (isAdmin) {
-    // 管理者：全部功能
-    if (btnCF)     btnCF.style.display     = '';
-    if (btnReset)  btnReset.style.display   = '';
-    if (btnExport) btnExport.style.display  = '';
-
-    // 帳號管理按鈕
     const toolbar = document.querySelector('.toolbar .ml-auto');
     if (toolbar && !document.getElementById('userMgmtBtn')) {
       const btn = document.createElement('button');
@@ -707,11 +723,6 @@ function updateTopbarUser() {
       btn.onclick = openUserManager;
       toolbar.insertBefore(btn, toolbar.firstChild);
     }
-  } else {
-    // 業務員：隱藏管理功能
-    if (btnCF)     btnCF.style.display    = 'none';
-    if (btnReset)  btnReset.style.display  = 'none';
-    if (btnExport) btnExport.style.display = 'none';
   }
 }
 
@@ -770,7 +781,7 @@ async function saveCF() {
 }
 
 async function resetToDefault() {
-  if (currentUser?.role !== 'admin') { toast('僅管理者可重置資料', 'error'); return; }
+  if (currentUser?.role !== 'admin' && currentUser?.role !== 'manager') { toast('僅管理者或業務長可重置資料', 'error'); return; }
   if (!confirm('確定要重置為初始調查資料（19筆）？\n⚠ 所有業務員更新的資料將清除，無法復原。')) return;
   showLoading('重置中…');
   customFields = [];
@@ -843,13 +854,20 @@ async function openUserManager() {
           <div id="userList" style="margin-bottom:16px;"></div>
           <div style="border-top:1px solid #1e2d45;padding-top:14px;">
             <div style="font-size:11px;font-weight:700;color:#6C3483;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;">➕ 新增業務員帳號</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
-              <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">帳號 *</label><input id="nu-account" class="finput" placeholder="例：chen001"></div>
-              <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">密碼 *</label><input id="nu-pwd" type="password" class="finput" placeholder="設定密碼"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+              <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">帳號（Gmail或自訂）*</label><input id="nu-account" class="finput" placeholder="例：chen@gmail.com"></div>
+              <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">密碼（Gmail登入可空白）</label><input id="nu-pwd" type="password" class="finput" placeholder="帳密登入才需填"></div>
               <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">姓名 *</label><input id="nu-name" class="finput" placeholder="例：陳業務"></div>
+              <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">角色 *</label>
+                <select id="nu-role" class="fselect">
+                  <option value="sales">👤 業務員</option>
+                  <option value="manager">⭐ 業務長</option>
+                  <option value="admin">👑 管理者</option>
+                </select>
+              </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
-              <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">指派客戶ID（逗號分隔，空白=僅自己新增的）</label><input id="nu-assigned" class="finput" placeholder="例：A001,B003,C002  或留空"></div>
+              <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">指派客戶ID（逗號分隔，ALL=全部，空白=僅自己新增的）</label><input id="nu-assigned" class="finput" placeholder="例：A001,B003,C002 或填 ALL 或留空"></div>
               <button onclick="addUser()" class="btn btn-primary" style="white-space:nowrap;">＋ 新增</button>
             </div>
           </div>
@@ -875,14 +893,14 @@ function renderUserList() {
   el.innerHTML = allUsers.map((u,i) => {
     const isAdmin = u.role === 'admin';
     const bg = i%2===0 ? '#162035' : '#111927';
-    return `<div style="background:${bg};border:1px solid #1e2d45;border-radius:8px;padding:10px 12px;margin-bottom:6px;display:grid;grid-template-columns:80px 80px 1fr auto auto;gap:10px;align-items:center;">
+    return `<div style="background:${bg};border:1px solid #1e2d45;border-radius:8px;padding:10px 12px;margin-bottom:6px;display:grid;grid-template-columns:240px 80px 1fr auto auto;gap:10px;align-items:center;">
       <div>
         <div style="font-size:10px;color:#8899aa;">帳號</div>
-        <div style="font-size:12px;font-weight:700;color:${isAdmin?'#C8A93A':'#34d399'}">${u.account}</div>
+        <div style="font-size:12px;font-weight:700;color:${isAdmin?'#C8A93A':isMgr?'#c084fc':'#34d399'}">${u.account}</div>
       </div>
       <div>
         <div style="font-size:10px;color:#8899aa;">角色</div>
-        <div style="font-size:11px;color:${isAdmin?'#C8A93A':'#e8edf5'}">${isAdmin?'👑 管理者':'👤 業務員'}</div>
+        <div style="font-size:11px;color:${isAdmin?'#C8A93A':isMgr?'#c084fc':'#e8edf5'}">${isAdmin?'👑 管理者':isMgr?'⭐ 業務長':'👤 業務員'}</div>
       </div>
       <div>
         <div style="font-size:10px;color:#8899aa;">姓名 ／ 指派客戶ID</div>
@@ -903,7 +921,8 @@ async function addUser() {
 
   if (!account || !pwd || !name) { toast('請填入帳號、密碼、姓名','error'); return; }
 
-  const res = await apiPost({ action:'saveUser', user:{ account, password:pwd, role:'sales', name, assignedIds:assigned, active:true } });
+  const role = document.getElementById('nu-role')?.value || 'sales';
+  const res = await apiPost({ action:'saveUser', user:{ account, password:pwd, role:role, name, assignedIds:assigned, active:true } });
   if (res.ok) {
     toast('業務員「'+name+'」已新增 ✓','success');
     ['nu-account','nu-pwd','nu-name','nu-assigned'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
@@ -920,7 +939,11 @@ async function editUser(account) {
   const newAssigned = prompt(`編輯「${u.name}」的指派客戶ID\n（逗號分隔，ALL=全部，空白=僅自己的）：`, u.assignedIds||'');
   if (newAssigned === null) return;
   const newPwd = prompt(`重設密碼（留空=保留原密碼）：`, '');
-  const res = await apiPost({ action:'saveUser', user:{ account:u.account, password:newPwd||'', role:u.role, name:u.name, assignedIds:newAssigned, active:true } });
+  const roleLabel = u.role==='admin'?'管理者':u.role==='manager'?'業務長':'業務員';
+  const newRoleInput = prompt(`角色（輸入：admin=管理者 / manager=業務長 / sales=業務員）\n目前：${roleLabel}`, u.role||'sales');
+  if (newRoleInput === null) return;
+  const finalRole = ['admin','manager','sales'].includes(newRoleInput.trim()) ? newRoleInput.trim() : u.role;
+  const res = await apiPost({ action:'saveUser', user:{ account:u.account, password:newPwd||'', role:finalRole, name:u.name, assignedIds:newAssigned, active:true } });
   if (res.ok) {
     toast('已更新 ✓','success');
     const res2 = await apiGet({ action:'getUsers' });
@@ -1007,7 +1030,7 @@ function render(){
       <td>${nd}</td>
       <td><div class="row-actions">
         <button class="act-btn" onclick="event.stopPropagation();openEdit('${r.id}')" title="編輯">✏️</button>
-        ${currentUser?.role==='admin' ? `<button class="act-btn del" onclick="event.stopPropagation();deleteRecord('${r.id}')" title="刪除">🗑</button>` : ''}
+        ${(currentUser?.role==='admin'||currentUser?.role==='manager') ? `<button class="act-btn del" onclick="event.stopPropagation();deleteRecord('${r.id}')" title="刪除">🗑</button>` : ''}
       </div></td>
     </tr>`;
   }).join('');
@@ -1134,7 +1157,8 @@ async function saveRecord(){
 }
 
 async function deleteRecord(id){
-  if(currentUser?.role !== 'admin'){ toast('業務員無刪除權限，請聯繫管理者','error'); return; }
+  const r2 = currentUser?.role;
+  if(r2 !== 'admin' && r2 !== 'manager'){ toast('業務員無刪除權限，請聯繫業務長或管理者','error'); return; }
   const r=records.find(x=>x.id===id); if(!r)return;
   if(!confirm(`確定要刪除「${r.name}」嗎？`))return;
   records=records.filter(x=>x.id!==id);
