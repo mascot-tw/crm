@@ -507,10 +507,7 @@ const FIXED_FIELDS = [
   {key:'total',   label:'累計採購金額（NT$）', type:'text', req:false, sec:'📅 跟進追蹤', half:true},
   {key:'source',  label:'資料來源管道',    type:'text',    req:false, sec:'📅 跟進追蹤', half:true},
   {key:'memo',    label:'🔑 跟進備忘錄（切入點）', type:'textarea', req:false, sec:'📅 跟進追蹤', half:false},
-  // 系統自動欄位（唯讀，不可修改）
-  {key:'createdBy',   label:'📌 建立者帳號',   type:'readonly', req:false, sec:'📋 系統記錄', half:true},
-  {key:'lastUpdated', label:'🕐 最後儲存時間', type:'readonly', req:false, sec:'📋 系統記錄', half:true},
-  {key:'updatedBy',   label:'✏️ 最後儲存者',  type:'readonly', req:false, sec:'📋 系統記錄', half:true},
+  // 系統自動欄位（僅在詳細面板顯示，不出現在編輯表單）
 ];
 
 // ══════════════════════════════════════════════════════
@@ -571,6 +568,7 @@ async function apiGet(params) {
     token:   currentUser?.token||''
   });
   const res = await fetch(API_URL + '?' + q, { method:'GET' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
 }
 async function apiPost(payload) {
@@ -817,7 +815,10 @@ async function renderPendingList() {
   try {
     const res = await apiGet({ action:'getPendingUsers' });
     pendingUsers = (res.ok && res.pending) ? res.pending : [];
-  } catch(e) { pendingUsers = []; }
+  } catch(e) {
+    pendingUsers = [];
+    return; // 失敗靜默，不影響帳號管理視窗
+  }
 
   const existing = document.getElementById('pendingSection');
   if (existing) existing.remove();
@@ -962,7 +963,8 @@ async function loadData() {
       throw new Error(recRes.error || '載入失敗');
     }
   } catch(e) {
-    toast('⚠ 連線失敗：' + e.message, 'error');
+    // 連線失敗時靜默使用空資料，不顯示嚇人的紅色警示
+    console.warn('loadData 失敗：', e.message);
     records = [];
   }
   hideLoading();
@@ -1090,9 +1092,10 @@ async function openUserManager() {
     document.body.appendChild(um);
   }
 
-  renderUserList();
-  renderPendingList();
   um.style.display = 'flex';
+  renderUserList();
+  // pending 背景載入，不阻塞主視窗
+  setTimeout(() => renderPendingList(), 100);
 }
 
 function closeUserManager() {
@@ -1335,6 +1338,19 @@ function showDetail(id){
     });
     html+='</div></div>';
   });
+  // 加入系統記錄（唯讀，只在詳細面板顯示）
+  const r_sys = records.find(x=>x.id===id)||{};
+  if (r_sys.createdBy || r_sys.updatedBy || r_sys.lastUpdated) {
+    html += `<div class="det-sec">
+      <div class="det-sec-title">📋 系統記錄</div>
+      <div class="det-grid">
+        <div class="det-field"><div class="det-label">📌 建立者帳號</div><div class="det-val" style="color:var(--text-dim);border-style:dashed;">${r_sys.createdBy||'—'}</div></div>
+        <div class="det-field"><div class="det-label">✏️ 最後儲存者</div><div class="det-val" style="color:var(--text-dim);border-style:dashed;">${r_sys.updatedBy||'—'}</div></div>
+        <div class="det-field-wide"><div class="det-label">🕐 最後儲存時間</div><div class="det-val" style="color:var(--text-dim);border-style:dashed;">${r_sys.lastUpdated||'—'}</div></div>
+      </div>
+    </div>`;
+  }
+
   document.getElementById('detailBody').innerHTML=html;
   document.getElementById('detailOverlay').classList.add('open');
   render();
