@@ -210,6 +210,7 @@ tbody tr:hover .row-actions{opacity:1;}
     <div class="pill a"><span>A 級</span><b id="st-a">0</b></div>
     <div class="pill b"><span>B 級</span><b id="st-b">0</b></div>
     <div class="pill prog"><span>聯繫已確認</span><b id="st-verified">0</b></div>
+    <button onclick="doLogout()" style="background:rgba(192,57,43,.2);border:1px solid rgba(192,57,43,.4);border-radius:18px;color:#f87171;font-size:11px;padding:3px 12px;cursor:pointer;font-family:inherit;">⏻ 登出</button>
   </div>
 </div>
 
@@ -227,6 +228,7 @@ tbody tr:hover .row-actions{opacity:1;}
   <div class="ml-auto" style="display:flex;gap:6px;flex-wrap:wrap;">
     <button class="btn btn-ghost" id="guideToggle" onclick="toggleGuide()">📖 查詢手冊</button>
     <button class="btn btn-ghost" id="btnExport" onclick="exportCSV()">⬇ 匯出CSV</button>
+    <button class="btn btn-orange" id="btnImport" onclick="openImport()" style="display:none">⬆ 匯入CSV</button>
     <button class="btn btn-purple" id="btnCF" onclick="openCFManager()" style="display:none">⚙ 自訂欄位</button>
     <button class="btn btn-primary" onclick="openAdd()">＋ 新增客戶</button>
     <button class="btn btn-danger" id="btnReset" onclick="resetToDefault()" style="display:none">🔄 重置資料</button>
@@ -416,6 +418,55 @@ tbody tr:hover .row-actions{opacity:1;}
       </div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closeCFManager()">關閉</button></div>
+  </div>
+</div>
+
+<!-- IMPORT CSV MODAL -->
+<div class="modal-overlay" id="importOverlay">
+  <div class="modal" style="width:580px;">
+    <div class="modal-header">
+      <div class="modal-title">⬆ 批量匯入 CSV（管理者專用）</div>
+      <button class="close-btn" onclick="closeImport()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:rgba(200,169,58,.1);border:1px solid rgba(200,169,58,.3);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#fbbf24;line-height:1.8;">
+        <b style="display:block;margin-bottom:6px;font-size:13px;">⚠ 匯入前必讀</b>
+        ① 請先點「<b>⬇ 匯出CSV</b>」取得目前資料備份<br>
+        ② 用 Excel 開啟 CSV，核定新增/修改的客戶資料<br>
+        ③ 儲存為 CSV 格式（UTF-8）<br>
+        ④ 選擇「<b>僅新增</b>」或「<b>全量覆蓋</b>」模式後匯入<br>
+        ⑤ 匯入後系統資料立即更新，所有業務員可見
+      </div>
+      <div style="margin-bottom:14px;">
+        <label class="flabel">匯入模式</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px;">
+          <label style="display:flex;align-items:flex-start;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;cursor:pointer;" id="modeAppendLabel">
+            <input type="radio" name="importMode" value="append" checked style="margin-top:2px;" onchange="updateModeStyle()">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:#4ade80;">➕ 僅新增</div>
+              <div style="font-size:11px;color:var(--text-dim);margin-top:3px;">只新增CSV中ID不存在的客戶，已有資料不受影響</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;cursor:pointer;" id="modeOverwriteLabel">
+            <input type="radio" name="importMode" value="overwrite" style="margin-top:2px;" onchange="updateModeStyle()">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:#f87171;">🔄 全量覆蓋</div>
+              <div style="font-size:11px;color:var(--text-dim);margin-top:3px;">完全取代現有資料，請務必先匯出備份</div>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label class="flabel">選擇 CSV 檔案 <span style="color:var(--red)">*</span></label>
+        <input type="file" id="csvFileInput" accept=".csv" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:12px;font-family:inherit;">
+      </div>
+      <div id="importPreview" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11.5px;color:var(--text-dim);max-height:120px;overflow-y:auto;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeImport()">取消</button>
+      <button class="btn btn-ghost" onclick="exportCSV()" style="border-color:var(--teal);color:var(--teal);">先匯出備份</button>
+      <button class="btn btn-primary" onclick="doImportCSV()">⬆ 確認匯入</button>
+    </div>
   </div>
 </div>
 
@@ -636,6 +687,7 @@ async function handleGoogleLogin(googleResponse) {
       currentUser = { account:data.account, name:data.name, role:data.role, token:data.token, assignedIds:data.assignedIds||[], gmail:gmail };
       document.getElementById('loginScreen')?.remove();
       updateTopbarUser();
+      startAutoLogout();
       loadData();
     } else {
       showLoginError(data.error || '此 Gmail 尚未獲得授權，請聯繫業務客服專線');
@@ -658,6 +710,7 @@ async function doLogin() {
       currentUser = { account:data.account, name:data.name, role:data.role, token:data.token, assignedIds:data.assignedIds||[] };
       document.getElementById('loginScreen')?.remove();
       updateTopbarUser();
+      startAutoLogout();
       loadData();
     } else {
       showLoginError(data.error || '帳號或密碼錯誤');
@@ -705,12 +758,15 @@ function updateTopbarUser() {
 
   // 自訂欄位：僅 admin
   if (btnCF) btnCF.style.display = isAdmin ? '' : 'none';
+  // 匯入CSV：僅 admin
+  const btnImport = document.getElementById('btnImport');
+  if (btnImport) btnImport.style.display = isAdmin ? '' : 'none';
 
   // 匯出CSV：admin + manager
   if (btnExport) btnExport.style.display = (isAdmin || isMgr) ? '' : 'none';
 
-  // 重置資料：admin + manager
-  if (btnReset) btnReset.style.display = (isAdmin || isMgr) ? '' : 'none';
+  // 重置資料：僅 admin
+  if (btnReset) btnReset.style.display = isAdmin ? '' : 'none';
 
   // 帳號管理按鈕：僅 admin
   if (isAdmin) {
@@ -781,7 +837,7 @@ async function saveCF() {
 }
 
 async function resetToDefault() {
-  if (currentUser?.role !== 'admin' && currentUser?.role !== 'manager') { toast('僅管理者或業務長可重置資料', 'error'); return; }
+  if (currentUser?.role !== 'admin') { toast('重置資料功能僅限管理者使用', 'error'); return; }
   if (!confirm('確定要重置為初始調查資料（19筆）？\n⚠ 所有業務員更新的資料將清除，無法復原。')) return;
   showLoading('重置中…');
   customFields = [];
@@ -908,7 +964,7 @@ function renderUserList() {
         <div style="font-size:11px;color:#8899aa;margin-top:2px;">${u.assignedIds || '（僅自己建立的客戶）'}</div>
       </div>
       <button onclick="editUser('${u.account}')" style="padding:4px 10px;border-radius:6px;border:1px solid #1e2d45;background:transparent;color:#8899aa;cursor:pointer;font-size:11px;white-space:nowrap;">✏️ 編輯</button>
-      ${isAdmin ? '' : `<button onclick="removeUser('${u.account}')" style="padding:4px 10px;border-radius:6px;border:1px solid #C0392B;background:transparent;color:#f87171;cursor:pointer;font-size:11px;">🗑</button>`}
+      ${isAdmin ? `<button onclick="removeUser('${u.account}')" style="padding:4px 10px;border-radius:6px;border:1px solid #C0392B;background:transparent;color:#f87171;cursor:pointer;font-size:11px;">🗑</button>` : ''}
     </div>`;
   }).join('');
 }
@@ -1220,6 +1276,149 @@ function exportCSV(){
 }
 
 // ══════════════════════════════════════════════════════
+// 批量匯入 CSV
+// ══════════════════════════════════════════════════════
+function openImport() {
+  if (currentUser?.role !== 'admin') { toast('批量匯入僅限管理者','error'); return; }
+  document.getElementById('importOverlay').classList.add('open');
+  document.getElementById('importPreview').style.display = 'none';
+  document.getElementById('csvFileInput').value = '';
+  document.querySelector('input[name="importMode"][value="append"]').checked = true;
+  updateModeStyle();
+}
+function closeImport() { document.getElementById('importOverlay').classList.remove('open'); }
+document.addEventListener('DOMContentLoaded', () => {
+  const ov = document.getElementById('importOverlay');
+  if (ov) ov.addEventListener('click', function(e){ if(e.target===this) closeImport(); });
+
+  const fileInput = document.getElementById('csvFileInput');
+  if (fileInput) fileInput.addEventListener('change', previewCSV);
+});
+
+function updateModeStyle() {
+  const isOverwrite = document.querySelector('input[name="importMode"]:checked')?.value === 'overwrite';
+  document.getElementById('modeAppendLabel').style.borderColor = !isOverwrite ? 'var(--teal)' : 'var(--border)';
+  document.getElementById('modeOverwriteLabel').style.borderColor = isOverwrite ? 'var(--red)' : 'var(--border)';
+}
+
+function parseCSV(text) {
+  // Remove BOM
+  text = text.replace(/^﻿/, '');
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return null;
+
+  const parseRow = (line) => {
+    const result = [];
+    let cur = '', inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (inQuote && line[i+1] === '"') { cur += '"'; i++; }
+        else inQuote = !inQuote;
+      } else if (c === ',' && !inQuote) { result.push(cur); cur = ''; }
+      else cur += c;
+    }
+    result.push(cur);
+    return result;
+  };
+
+  const headers = parseRow(lines[0]);
+  return lines.slice(1).map(line => {
+    const vals = parseRow(line);
+    const obj = {};
+    headers.forEach((h,i) => { obj[h.trim()] = (vals[i]||'').trim(); });
+    return obj;
+  }).filter(r => r['id'] || r['客戶編號']);
+}
+
+function previewCSV() {
+  const file = document.getElementById('csvFileInput')?.files[0];
+  const preview = document.getElementById('importPreview');
+  if (!file || !preview) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const rows = parseCSV(e.target.result);
+    if (!rows) { preview.innerHTML='<span style="color:#f87171">CSV格式錯誤，請確認檔案格式</span>'; preview.style.display='block'; return; }
+    preview.innerHTML = `<b style="color:var(--teal)">預覽：共 ${rows.length} 筆資料</b><br>` +
+      rows.slice(0,5).map(r => `• ${r['id']||r['客戶編號']||'?'} ${r['name']||r['店家名稱/暱稱']||''}`).join('<br>') +
+      (rows.length > 5 ? `<br><span style="color:var(--text-dim)">...還有 ${rows.length-5} 筆</span>` : '');
+    preview.style.display = 'block';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+async function doImportCSV() {
+  if (currentUser?.role !== 'admin') { toast('批量匯入僅限管理者','error'); return; }
+  const file = document.getElementById('csvFileInput')?.files[0];
+  if (!file) { toast('請先選擇 CSV 檔案','error'); return; }
+
+  const mode = document.querySelector('input[name="importMode"]:checked')?.value || 'append';
+
+  if (mode === 'overwrite') {
+    if (!confirm('⚠ 全量覆蓋模式\n\n此操作將清除所有現有客戶資料，以CSV內容取代。\n\n請確認您已匯出備份，且此操作無法復原。\n\n確定要繼續嗎？')) return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const rows = parseCSV(e.target.result);
+    if (!rows || rows.length === 0) { toast('CSV 內容為空或格式錯誤','error'); return; }
+
+    showLoading(`正在匯入 ${rows.length} 筆資料…`);
+
+    // 欄位名稱映射（中文→英文）
+    const fieldMap = {
+      '客戶編號':'id','客群類型':'group','店家名稱/暱稱':'name','所在地區':'region',
+      '業態/類型':'biztype','規模指標':'scale','聯絡窗口（姓名+職稱）':'contact',
+      '📱 手機號碼':'mobile','☎ 市話（含分機）':'phone','✉ 電子郵件 Email':'email',
+      '💬 LINE ID':'line','FB / IG 帳號':'fb','現有供應商（推估）':'supplier',
+      '月採購額估（萬）':'monthly','帳期偏好':'payment','主要進貨品類':'category',
+      '初評等級':'grade','合作狀態':'status','首次接觸日期':'firstdate',
+      '下次跟進日期（每次接觸後必填）':'nextdate','累計採購金額（NT$）':'total',
+      '資料來源管道':'source','🔑 跟進備忘錄（切入點）':'memo'
+    };
+
+    // 轉換欄位名稱
+    const normalized = rows.map(row => {
+      const rec = {};
+      Object.entries(row).forEach(([k,v]) => {
+        const engKey = fieldMap[k] || k;
+        rec[engKey] = v;
+      });
+      if (!rec.assignedTo) rec.assignedTo = 'ALL';
+      if (!rec.createdBy)  rec.createdBy  = currentUser.account;
+      return rec;
+    });
+
+    try {
+      if (mode === 'overwrite') {
+        // 全量覆蓋
+        const res = await apiPost({ action:'saveRecords', records:normalized });
+        if (res.ok) {
+          records = normalized;
+          toast(`✅ 全量匯入完成：${normalized.length} 筆`, 'success');
+        } else { throw new Error(res.error); }
+      } else {
+        // 僅新增（ID不存在才新增）
+        const existingIds = new Set(records.map(r=>r.id));
+        const toAdd = normalized.filter(r => r.id && !existingIds.has(r.id));
+        for (const rec of toAdd) {
+          await apiPost({ action:'saveRecord', record:rec });
+          records.push(rec);
+        }
+        toast(`✅ 新增完成：${toAdd.length} 筆新增，${normalized.length-toAdd.length} 筆已存在略過`, 'success');
+      }
+      closeImport();
+      render();
+    } catch(err) {
+      toast('匯入失敗：'+err.message, 'error');
+    }
+    hideLoading();
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ══════════════════════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════════════════════
 function toast(msg,type){
@@ -1230,6 +1429,69 @@ function toast(msg,type){
   el.innerHTML='<span>'+(type==='success'?'✅':type==='error'?'❌':'ℹ️')+'</span><span>'+msg+'</span>';
   c.appendChild(el);
   setTimeout(()=>{el.style.cssText+='opacity:0;transform:translateY(10px);transition:all .3s;';setTimeout(()=>el.remove(),300);},3000);
+}
+
+// ══════════════════════════════════════════════════════
+// 登出 & 自動登出（10分鐘）
+// ══════════════════════════════════════════════════════
+let _autoLogoutTimer = null;
+const AUTO_LOGOUT_MS = 10 * 60 * 1000; // 10 分鐘
+
+function resetAutoLogout() {
+  if (_autoLogoutTimer) clearTimeout(_autoLogoutTimer);
+  _autoLogoutTimer = setTimeout(() => {
+    doLogout(true);
+  }, AUTO_LOGOUT_MS);
+}
+
+function startAutoLogout() {
+  ['click','keydown','mousemove','touchstart'].forEach(evt => {
+    document.addEventListener(evt, resetAutoLogout, { passive:true });
+  });
+  resetAutoLogout();
+}
+
+function doLogout(isAuto) {
+  if (_autoLogoutTimer) clearTimeout(_autoLogoutTimer);
+  currentUser = null;
+  records = [];
+  customFields = [];
+  showLogoutScreen(isAuto);
+}
+
+function showLogoutScreen(isAuto) {
+  // 移除主畫面
+  const layout = document.querySelector('.layout');
+  const toolbar = document.querySelector('.toolbar');
+  const tabs    = document.querySelector('.tabs');
+  const prog    = document.querySelector('.progress-bar-wrap');
+  [layout, toolbar, tabs, prog].forEach(el => { if(el) el.style.display='none'; });
+
+  // 移除舊登出畫面
+  const oldOut = document.getElementById('logoutScreen');
+  if (oldOut) oldOut.remove();
+
+  const div = document.createElement('div');
+  div.id = 'logoutScreen';
+  div.style.cssText = 'position:fixed;inset:0;background:#0d1421;z-index:1000;display:flex;align-items:center;justify-content:center;font-family:Noto Sans TC,sans-serif;';
+  div.innerHTML = `
+    <div style="text-align:center;padding:40px;">
+      <div style="width:70px;height:70px;background:var(--teal);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;margin:0 auto 24px;">C</div>
+      <div style="font-size:22px;font-weight:700;color:#e8edf5;margin-bottom:12px;">
+        ${isAuto ? '⏰ 系統已自動登出' : '✅ 已成功登出'}
+      </div>
+      <div style="font-size:14px;color:#8899aa;margin-bottom:8px;">
+        ${isAuto ? '您已超過 10 分鐘未操作，系統已自動登出以保護資料安全。' : '感謝您使用國際柑仔店 CRM 業務員專屬系統。'}
+      </div>
+      <div style="font-size:13px;color:#5ecfbc;margin-bottom:32px;">
+        祝您業務順利，開發客戶成功！🎯
+      </div>
+      <button onclick="showLoginScreen();document.getElementById('logoutScreen').remove();[...document.querySelectorAll('.layout,.toolbar,.tabs,.progress-bar-wrap')].forEach(el=>el&&(el.style.display=''));"
+        style="background:var(--teal);color:#fff;border:none;border-radius:10px;padding:12px 32px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">
+        🔐 重新登入
+      </button>
+    </div>`;
+  document.body.appendChild(div);
 }
 
 // ══════════════════════════════════════════════════════
