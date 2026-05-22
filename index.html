@@ -371,8 +371,8 @@ tbody tr:hover .row-actions{opacity:1;}
     <div class="detail-body" id="detailBody"></div>
     <div class="detail-footer">
       <div class="edit-hint">
-        <b>✏️ 編輯功能說明</b>
-        點「編輯資料」可修改所有欄位：更新合作狀態、填入真實聯繫方式（手機/市話/Email）、設定下次跟進日、更新備忘錄。儲存後「聯繫完整度」指標會自動更新。
+        <b>✏️ 編輯此客戶資料</b>
+        點「編輯資料」可更新：合作狀態、聯繫方式、跟進日期、備忘錄。儲存後自動記錄儲存者與時間。
       </div>
       <div style="display:flex;gap:7px;">
         <button class="btn btn-primary" style="flex:1" onclick="editFromDetail()">✏️ 編輯資料</button>
@@ -507,6 +507,10 @@ const FIXED_FIELDS = [
   {key:'total',   label:'累計採購金額（NT$）', type:'text', req:false, sec:'📅 跟進追蹤', half:true},
   {key:'source',  label:'資料來源管道',    type:'text',    req:false, sec:'📅 跟進追蹤', half:true},
   {key:'memo',    label:'🔑 跟進備忘錄（切入點）', type:'textarea', req:false, sec:'📅 跟進追蹤', half:false},
+  // 系統自動欄位（唯讀，不可修改）
+  {key:'createdBy',   label:'📌 建立者帳號',   type:'readonly', req:false, sec:'📋 系統記錄', half:true},
+  {key:'lastUpdated', label:'🕐 最後儲存時間', type:'readonly', req:false, sec:'📋 系統記錄', half:true},
+  {key:'updatedBy',   label:'✏️ 最後儲存者',  type:'readonly', req:false, sec:'📋 系統記錄', half:true},
 ];
 
 // ══════════════════════════════════════════════════════
@@ -1038,7 +1042,6 @@ function generateClientId() {
 function allFields(){
   const adminExtra = currentUser?.role === 'admin' ? [
     {key:'assignedTo', label:'指派業務員帳號（逗號分隔，ALL=全部）', type:'text', req:false, sec:'📅 跟進追蹤', half:true},
-    {key:'createdBy',  label:'建立者帳號', type:'text', req:false, sec:'📅 跟進追蹤', half:true},
   ] : [];
   return [...FIXED_FIELDS, ...adminExtra, ...customFields.map(cf=>({key:cf.key,label:cf.label,type:cf.type,req:false,sec:'⚙ 自訂欄位',half:true}))];
 }
@@ -1210,11 +1213,21 @@ async function saveRecord(){
   const newRec={};
   allFields().forEach(f=>{ const el=document.getElementById('ff-'+f.key); if(el)newRec[f.key]=el.value.trim(); });
   if(!newRec.id||!newRec.name){toast('請填入客戶編號和店家名稱','error');return;}
+
+  // 系統自動欄位
+  const now = new Date().toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}).replace(/\//g,'-');
+  newRec.updatedBy   = currentUser?.account||'';
+  newRec.lastUpdated = now;
   if(editingId){
+    // 保留原建立者
+    const orig = records.find(r=>r.id===editingId);
+    newRec.createdBy = orig?.createdBy || newRec.createdBy || currentUser?.account||'';
     const idx=records.findIndex(r=>r.id===editingId); if(idx>=0)records[idx]=newRec;
     toast('同步中…','info'); await saveData(newRec);
     toast('✅ 已更新並同步到 Google Sheet','success');
   } else {
+    // 新增：建立者 = 當前登入帳號
+    newRec.createdBy = currentUser?.account||'';
     if(records.find(r=>r.id===newRec.id)){toast('此編號已存在','error');return;}
     records.push(newRec);
     toast('同步中…','info'); await saveData(newRec);
