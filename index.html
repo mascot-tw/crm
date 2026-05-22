@@ -963,9 +963,9 @@ async function loadData() {
       throw new Error(recRes.error || '載入失敗');
     }
   } catch(e) {
-    // 連線失敗時靜默使用空資料，不顯示嚇人的紅色警示
-    console.warn('loadData 失敗：', e.message);
-    records = [];
+    console.warn('loadData:', e.message);
+    // 若是第一次載入且 Sheet 還沒有資料，使用預設19筆
+    if (!records.length) records = JSON.parse(JSON.stringify(INITIAL_DATA));
   }
   hideLoading();
   render();
@@ -980,7 +980,8 @@ async function saveData(record) {
     const res = await apiPost({ action:'saveRecord', record });
     if (!res.ok) throw new Error(res.error);
   } catch(e) {
-    toast('⚠ 同步失敗：' + e.message, 'error');
+    console.warn('同步失敗：', e.message);
+    toast('⚠ 同步失敗，資料可能未儲存。請重試。', 'error');
   }
 }
 
@@ -1037,65 +1038,136 @@ let allUsers = [];
 
 async function openUserManager() {
   if (currentUser?.role !== 'admin') return;
-  showLoading('載入帳號清單…');
+
+  // 先建立/顯示 modal（不等待 API）
+  let um = document.getElementById('userMgrOverlay');
+  if (!um) {
+    um = document.createElement('div');
+    um.id = 'userMgrOverlay';
+    um.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:400;align-items:center;justify-content:center;backdrop-filter:blur(4px);font-family:Noto Sans TC,sans-serif;';
+    um.innerHTML = `
+      <div style="background:#111927;border:1px solid #1e2d45;border-radius:14px;width:720px;max-width:95vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.6);">
+        <div style="padding:16px 18px;border-bottom:1px solid #1e2d45;display:flex;align-items:center;justify-content:space-between;background:#6C3483;">
+          <div style="font-size:14px;font-weight:700;color:#fff;">👥 帳號管理</div>
+          <button onclick="closeUserManager()" style="width:26px;height:26px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-size:14px;">✕</button>
+        </div>
+        <div id="umBody" style="padding:16px 18px;overflow-y:auto;flex:1;">
+          <div style="text-align:center;padding:20px;color:#8899aa;font-size:13px;">載入中…</div>
+        </div>
+      </div>`;
+    document.body.appendChild(um);
+  } else {
+    um.style.display = 'flex';
+  }
+
+  // 載入帳號資料
   try {
     const res = await apiGet({ action:'getUsers' });
     if (res.ok && res.users) {
       allUsers = res.users;
     } else {
-      toast('載入帳號失敗：'+(res.error||'未知錯誤'), 'error');
       allUsers = [];
     }
   } catch(e) {
-    toast('連線失敗，請重試','error');
     allUsers = [];
   }
-  hideLoading();
 
-  let um = document.getElementById('userMgrOverlay');
-  if (!um) {
-    um = document.createElement('div');
-    um.id = 'userMgrOverlay';
-    um.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:400;align-items:center;justify-content:center;backdrop-filter:blur(4px);font-family:Noto Sans TC,sans-serif;';
-    um.innerHTML = `
-      <div style="background:#111927;border:1px solid #1e2d45;border-radius:14px;width:700px;max-width:95vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.6);">
-        <div style="padding:16px 18px;border-bottom:1px solid #1e2d45;display:flex;align-items:center;justify-content:space-between;background:#6C3483;">
-          <div style="font-size:14px;font-weight:700;color:#fff;">👥 帳號管理</div>
-          <button onclick="closeUserManager()" style="width:26px;height:26px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-size:14px;">✕</button>
-        </div>
-        <div style="padding:16px 18px;overflow-y:auto;flex:1;">
-          <div style="font-size:11px;color:#8899aa;background:#162035;border:1px solid #1e2d45;border-radius:8px;padding:10px 12px;margin-bottom:14px;line-height:1.7;">
-            📋 <b style="color:#e8edf5">指派客戶ID說明：</b>填入要指派給該業務員的客戶ID，用逗號分隔（如：A001,B003,C002）。填 <b style="color:#C8A93A">ALL</b> 表示可看全部。新增客戶時空白即可（業務員自己新增的客戶自動歸屬給自己）。
-          </div>
-          <div id="userList" style="margin-bottom:16px;"></div>
-          <div style="border-top:1px solid #1e2d45;padding-top:14px;">
-            <div style="font-size:11px;font-weight:700;color:#6C3483;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;">➕ 新增業務員帳號</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
-              <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">帳號（Gmail或自訂）*</label><input id="nu-account" class="finput" placeholder="例：chen@gmail.com"></div>
-              <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">密碼（Gmail登入可空白）</label><input id="nu-pwd" type="password" class="finput" placeholder="帳密登入才需填"></div>
-              <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">姓名 *</label><input id="nu-name" class="finput" placeholder="例：陳業務"></div>
-              <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">角色 *</label>
-                <select id="nu-role" class="fselect">
-                  <option value="sales">👤 業務員</option>
-                  <option value="manager">⭐ 業務長</option>
-                  <option value="admin">👑 管理者</option>
-                </select>
-              </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
-              <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">指派客戶ID（逗號分隔，ALL=全部，空白=僅自己新增的）</label><input id="nu-assigned" class="finput" placeholder="例：A001,B003,C002 或填 ALL 或留空"></div>
-              <button onclick="addUser()" class="btn btn-primary" style="white-space:nowrap;">＋ 新增</button>
-            </div>
-          </div>
-        </div>
-      </div>`;
-    document.body.appendChild(um);
+  // 載入待審核
+  try {
+    const res2 = await apiGet({ action:'getPendingUsers' });
+    pendingUsers = (res2.ok && res2.pending) ? res2.pending : [];
+  } catch(e) {
+    pendingUsers = [];
   }
 
-  um.style.display = 'flex';
-  renderUserList();
-  // pending 背景載入，不阻塞主視窗
-  setTimeout(() => renderPendingList(), 100);
+  renderUserManagerBody();
+}
+
+function renderUserManagerBody() {
+  const body = document.getElementById('umBody');
+  if (!body) return;
+
+  let html = '';
+
+  // 待審核區塊
+  if (pendingUsers.length > 0) {
+    html += `<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:12px;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:10px;letter-spacing:.06em;">⏳ 待審核申請（${pendingUsers.length} 筆）</div>`;
+    pendingUsers.forEach(p => {
+      html += `<div style="display:flex;align-items:center;gap:10px;background:#162035;border-radius:7px;padding:9px 12px;margin-bottom:6px;">
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:700;color:#fbbf24;">${p.gmail}</div>
+          <div style="font-size:11px;color:#8899aa;">${p.name||''}${p.reason?' ・ '+p.reason:''}</div>
+          <div style="font-size:10px;color:#4A5568;">${p.appliedAt||''}</div>
+        </div>
+        <button onclick="approveUser('${p.gmail}','${p.name||''}')" style="padding:5px 12px;border-radius:6px;background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.3);color:#4ade80;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;">✅ 核准</button>
+        <button onclick="rejectUser('${p.gmail}')" style="padding:5px 12px;border-radius:6px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.25);color:#f87171;cursor:pointer;font-size:11px;white-space:nowrap;">❌ 拒絕</button>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // 說明
+  html += `<div style="font-size:11px;color:#8899aa;background:#162035;border:1px solid #1e2d45;border-radius:8px;padding:10px 12px;margin-bottom:14px;line-height:1.7;">
+    📋 <b style="color:#e8edf5">指派客戶ID：</b>用逗號分隔（如 A001,B003）。填 <b style="color:#C8A93A">ALL</b> 可看全部。空白=僅自己新增的客戶。
+  </div>`;
+
+  // 帳號列表
+  html += `<div id="userList" style="margin-bottom:16px;">`;
+  if (!allUsers.length) {
+    html += '<div style="color:#8899aa;font-size:12px;text-align:center;padding:10px;">尚無帳號</div>';
+  } else {
+    allUsers.forEach((u, i) => {
+      const isAdmin = u.role==='admin';
+      const isMgr   = u.role==='manager';
+      const isSelf  = u.account === currentUser?.account;
+      const bg = i%2===0 ? '#162035' : '#111927';
+      const roleLabel = isAdmin?'👑 管理者':isMgr?'⭐ 業務長':'👤 業務員';
+      const roleColor = isAdmin?'#C8A93A':isMgr?'#c084fc':'#34d399';
+      html += `<div style="background:${bg};border:1px solid #1e2d45;border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">
+        <div style="min-width:220px;word-break:break-all;">
+          <div style="font-size:10px;color:#8899aa;">帳號</div>
+          <div style="font-size:12px;font-weight:700;color:${roleColor}">${u.account}</div>
+        </div>
+        <div style="min-width:80px;">
+          <div style="font-size:10px;color:#8899aa;">角色</div>
+          <div style="font-size:11px;color:${roleColor}">${roleLabel}</div>
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:10px;color:#8899aa;">姓名 ／ 指派ID</div>
+          <div style="font-size:12px;color:#e8edf5;">${u.name}</div>
+          <div style="font-size:11px;color:#8899aa;">${u.assignedIds||'（僅自己的）'}</div>
+        </div>
+        <button onclick="editUser('${u.account}')" style="padding:4px 10px;border-radius:6px;border:1px solid #1e2d45;background:transparent;color:#8899aa;cursor:pointer;font-size:11px;white-space:nowrap;">✏️ 編輯</button>
+        ${!isSelf ? `<button onclick="removeUser('${u.account}')" style="padding:4px 10px;border-radius:6px;border:1px solid #C0392B;background:transparent;color:#f87171;cursor:pointer;font-size:11px;">🗑</button>` : '<div style="width:42px;"></div>'}
+      </div>`;
+    });
+  }
+  html += '</div>';
+
+  // 新增表單
+  html += `<div style="border-top:1px solid #1e2d45;padding-top:14px;">
+    <div style="font-size:11px;font-weight:700;color:#6C3483;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;">➕ 新增業務員帳號</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+      <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">帳號（Gmail或自訂）*</label><input id="nu-account" class="finput" placeholder="例：chen@gmail.com"></div>
+      <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">密碼（Gmail登入可空白）</label><input id="nu-pwd" type="password" class="finput" placeholder="帳密登入才需填"></div>
+      <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">姓名 *</label><input id="nu-name" class="finput" placeholder="例：陳業務"></div>
+      <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">角色 *</label>
+        <select id="nu-role" class="fselect">
+          <option value="sales">👤 業務員</option>
+          <option value="manager">⭐ 業務長</option>
+          <option value="admin">👑 管理者</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+      <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">指派客戶ID（逗號分隔，ALL=全部，空白=僅自己新增的）</label>
+        <input id="nu-assigned" class="finput" placeholder="例：A001,B003 或填 ALL 或留空"></div>
+      <button onclick="addUser()" class="btn btn-primary" style="white-space:nowrap;">＋ 新增</button>
+    </div>
+  </div>`;
+
+  body.innerHTML = html;
 }
 
 function closeUserManager() {
@@ -1364,13 +1436,14 @@ function editFromDetail(){if(detailId){closeDetail();openEdit(detailId);}}
 // ADD / EDIT MODAL
 // ══════════════════════════════════════════════════════
 function buildForm(r){
+  // readonly 欄位不出現在編輯表單
   const fields=allFields();
   const sections={};
   fields.forEach(f=>{ if(!sections[f.sec])sections[f.sec]=[]; sections[f.sec].push(f); });
   let html='';
   Object.entries(sections).forEach(([sec,flds])=>{
     html+=`<div class="fsec">${sec}</div><div class="fgrid">`;
-    flds.forEach(f=>{
+    flds.forEach(f=>{ if(f.type==='readonly') return; // 系統記錄不放表單
       const val=r?(r[f.key]||''):(f.key==='grade'?'A':f.key==='status'?'未接觸':f.key==='group'?'A':f.key==='id'?generateClientId():f.key==='taxId'?'無':'');
       const wide=f.half===false?' wide':'';
       const req=f.req?'<span>*</span>':'';
