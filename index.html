@@ -562,25 +562,28 @@ let currentUser = null; // { account, name, role, token, assignedIds }
 // API 工具（全部改用 GET，避免 CORS 問題）
 // ══════════════════════════════════════════════════════
 async function apiGet(params) {
+  // 確保 token 是最新的（v4 每日重新產生）
+  const token = currentUser?.token || '';
   const q = new URLSearchParams({
     ...params,
     account: currentUser?.account||'',
-    token:   currentUser?.token||''
+    token:   token
   });
-  const res = await fetch(API_URL + '?' + q, { method:'GET' });
+  const url = API_URL + '?' + q.toString();
+  const res = await fetch(url, { method:'GET', mode:'cors' });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
 }
 async function apiPost(payload) {
-  // 改用 GET + 參數方式，避免 CORS preflight 問題
-  const params = {
-    ...payload,
+  // 用 GET + _data 參數，避免 CORS preflight
+  const q = new URLSearchParams({
+    action:  payload.action || '',
     account: currentUser?.account||'',
     token:   currentUser?.token||'',
-    _data:   JSON.stringify(payload)
-  };
-  const q = new URLSearchParams(params);
-  const res = await fetch(API_URL + '?' + q, { method:'GET' });
+    _data:   encodeURIComponent(JSON.stringify(payload))
+  });
+  const res = await fetch(API_URL + '?' + q.toString(), { method:'GET', mode:'cors' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
 }
 
@@ -708,8 +711,8 @@ async function doLogin() {
   if (!account || !pwd) { showLoginError('請填入帳號和密碼'); return; }
   showLoginError('驗證中…');
   try {
-    const q = new URLSearchParams({ action:'login', account, password:pwd });
-    const res = await fetch(API_URL + '?' + q, { method:'GET' });
+    const q = new URLSearchParams({ action:'login', account:account, password:pwd });
+    const res = await fetch(API_URL + '?' + q.toString(), { method:'GET', mode:'cors' });
     const data = await res.json();
     if (data.ok) {
       currentUser = { account:data.account, name:data.name, role:data.role, token:data.token, assignedIds:data.assignedIds||[] };
