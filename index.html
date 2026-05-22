@@ -226,10 +226,10 @@ tbody tr:hover .row-actions{opacity:1;}
   <select id="filterVerify"><option value="">全部完整度</option><option value="complete">聯繫已完整</option><option value="partial">部分填寫</option><option value="none">尚未填寫</option></select>
   <div class="ml-auto" style="display:flex;gap:6px;flex-wrap:wrap;">
     <button class="btn btn-ghost" id="guideToggle" onclick="toggleGuide()">📖 查詢手冊</button>
-    <button class="btn btn-ghost" onclick="exportCSV()">⬇ 匯出CSV</button>
-    <button class="btn btn-purple" onclick="openCFManager()">⚙ 自訂欄位</button>
+    <button class="btn btn-ghost" id="btnExport" onclick="exportCSV()">⬇ 匯出CSV</button>
+    <button class="btn btn-purple" id="btnCF" onclick="openCFManager()" style="display:none">⚙ 自訂欄位</button>
     <button class="btn btn-primary" onclick="openAdd()">＋ 新增客戶</button>
-    <button class="btn btn-danger" onclick="resetToDefault()" title="重置為最新調查資料（19筆）">🔄 重置資料</button>
+    <button class="btn btn-danger" id="btnReset" onclick="resetToDefault()" style="display:none">🔄 重置資料</button>
   </div>
 </div>
 
@@ -686,8 +686,18 @@ function updateTopbarUser() {
   pill.innerHTML = `<span>${isAdmin ? '👑' : '👤'}</span><b style="color:${isAdmin ? 'var(--gold)' : 'var(--teal-light)'}">${currentUser.name}</b><span style="font-size:9px;color:var(--text-dim);margin-left:2px;">${isAdmin ? '管理者' : '業務員'}</span>`;
   pills.insertBefore(pill, pills.firstChild);
 
-  // 管理者才顯示「帳號管理」按鈕
+  // 依角色顯示/隱藏功能按鈕
+  const btnCF    = document.getElementById('btnCF');
+  const btnReset = document.getElementById('btnReset');
+  const btnExport= document.getElementById('btnExport');
+
   if (isAdmin) {
+    // 管理者：全部功能
+    if (btnCF)     btnCF.style.display     = '';
+    if (btnReset)  btnReset.style.display   = '';
+    if (btnExport) btnExport.style.display  = '';
+
+    // 帳號管理按鈕
     const toolbar = document.querySelector('.toolbar .ml-auto');
     if (toolbar && !document.getElementById('userMgmtBtn')) {
       const btn = document.createElement('button');
@@ -697,6 +707,11 @@ function updateTopbarUser() {
       btn.onclick = openUserManager;
       toolbar.insertBefore(btn, toolbar.firstChild);
     }
+  } else {
+    // 業務員：隱藏管理功能
+    if (btnCF)     btnCF.style.display    = 'none';
+    if (btnReset)  btnReset.style.display  = 'none';
+    if (btnExport) btnExport.style.display = 'none';
   }
 }
 
@@ -992,7 +1007,7 @@ function render(){
       <td>${nd}</td>
       <td><div class="row-actions">
         <button class="act-btn" onclick="event.stopPropagation();openEdit('${r.id}')" title="編輯">✏️</button>
-        <button class="act-btn del" onclick="event.stopPropagation();deleteRecord('${r.id}')" title="刪除">🗑</button>
+        ${currentUser?.role==='admin' ? `<button class="act-btn del" onclick="event.stopPropagation();deleteRecord('${r.id}')" title="刪除">🗑</button>` : ''}
       </div></td>
     </tr>`;
   }).join('');
@@ -1119,6 +1134,7 @@ async function saveRecord(){
 }
 
 async function deleteRecord(id){
+  if(currentUser?.role !== 'admin'){ toast('業務員無刪除權限，請聯繫管理者','error'); return; }
   const r=records.find(x=>x.id===id); if(!r)return;
   if(!confirm(`確定要刪除「${r.name}」嗎？`))return;
   records=records.filter(x=>x.id!==id);
