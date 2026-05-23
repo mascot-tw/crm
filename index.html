@@ -228,9 +228,10 @@ tbody tr:hover .row-actions{opacity:1;}
   <select id="filterVerify"><option value="">全部完整度</option><option value="complete">聯繫已完整</option><option value="partial">部分填寫</option><option value="none">尚未填寫</option></select>
   <div class="ml-auto" style="display:flex;gap:6px;flex-wrap:wrap;">
     <button class="btn btn-ghost" id="guideToggle" onclick="toggleGuide()">📖 查詢手冊</button>
-    <button class="btn btn-ghost" id="btnExport" onclick="exportCSV()">⬇ 匯出CSV</button>
+    <button class="btn btn-ghost" id="btnExport" onclick="exportCSV()" style="display:none">⬇ 匯出CSV</button>
     <button class="btn btn-orange" id="btnImport" onclick="openImport()" style="display:none">⬆ 匯入CSV</button>
     <button class="btn btn-purple" id="btnCF" onclick="openCFManager()" style="display:none">⚙ 自訂欄位</button>
+    <button class="btn btn-gold" id="userMgmtBtn" onclick="openUserManager()" style="display:none">👥 帳號管理</button>
     <button class="btn btn-primary" onclick="openAdd()">＋ 新增客戶</button>
     <button class="btn btn-danger" id="btnReset" onclick="resetToDefault()" style="display:none">🔄 重置資料</button>
   </div>
@@ -929,18 +930,9 @@ function updateTopbarUser() {
   // 重置資料：僅 admin
   if (btnReset) btnReset.style.display = isAdmin ? '' : 'none';
 
-  // 帳號管理按鈕：僅 admin
-  if (isAdmin) {
-    const toolbar = document.querySelector('.toolbar .ml-auto');
-    if (toolbar && !document.getElementById('userMgmtBtn')) {
-      const btn = document.createElement('button');
-      btn.id = 'userMgmtBtn';
-      btn.className = 'btn btn-gold';
-      btn.textContent = '👥 帳號管理';
-      btn.onclick = openUserManager;
-      toolbar.insertBefore(btn, toolbar.firstChild);
-    }
-  }
+  // 帳號管理按鈕：僅 admin（按鈕已在 HTML，直接控制顯示）
+  const btnUserMgmt = document.getElementById('userMgmtBtn');
+  if (btnUserMgmt) btnUserMgmt.style.display = isAdmin ? '' : 'none';
 }
 
 // ══════════════════════════════════════════════════════
@@ -1007,7 +999,7 @@ async function saveCF() {
 
 async function resetToDefault() {
   if (currentUser?.role !== 'admin') { toast('重置資料功能僅限管理者使用', 'error'); return; }
-  if (!confirm('確定要重置為初始調查資料（19筆）？\n⚠ 所有業務員更新的資料將清除，無法復原。')) return;
+  if (!confirm('確定要重置為初始調查資料（19筆）？\n\n資料將寫入「國際柑仔店 CRM 資料庫」Google Sheet 的「CRM資料」分頁。\n⚠ 所有業務員更新的資料將清除，無法復原。')) return;
   showLoading('重置中…');
   customFields = [];
   records = JSON.parse(JSON.stringify(INITIAL_DATA)).map(r => ({ ...r, assignedTo:'ALL', createdBy:'admin' }));
@@ -1498,7 +1490,7 @@ function buildForm(r){
       } else if(f.type==='textarea'){
         html+=`<textarea class="ftextarea" id="ff-${f.key}">${val}</textarea>`;
       } else {
-        if (f.key === 'id' && r !== null) {
+        if (f.key === 'id') {
           html+=`<input type="text" class="finput" id="ff-${f.key}" value="${val.replace(/"/g,'&quot;')}" readonly style="background:rgba(255,255,255,.03);color:var(--text-dim);cursor:not-allowed;border-style:dashed;" title="客戶編號儲存後不可修改">`;
         } else {
           html+=`<input type="${f.type==='email'?'email':f.type==='date'?'date':'text'}" class="finput" id="ff-${f.key}" value="${val.replace(/"/g,'&quot;')}" placeholder="${f.label}">`;
@@ -1518,7 +1510,26 @@ document.getElementById('modalOverlay').addEventListener('click',function(e){if(
 async function saveRecord(){
   const newRec={};
   allFields().forEach(f=>{ const el=document.getElementById('ff-'+f.key); if(el)newRec[f.key]=el.value.trim(); });
-  if(!newRec.id||!newRec.name){toast('請填入客戶編號和店家名稱','error');return;}
+  if(!newRec.name){toast('請填入店家名稱','error');return;}
+  // 客戶編號：新增時若已存在自動遞增
+  if(!editingId) {
+    let baseId = newRec.id || generateClientId();
+    // 確保編號不重複
+    while(records.find(r=>r.id===baseId)) {
+      // 取出流水號部分遞增
+      const prefix = baseId.slice(0,6);
+      const seq    = parseInt(baseId.slice(6))||0;
+      baseId = prefix + String(seq+1).padStart(3,'0');
+    }
+    if(baseId !== newRec.id) {
+      toast('⚠ 編號 '+newRec.id+' 已存在，自動調整為 '+baseId,'info');
+    }
+    newRec.id = baseId;
+    // 更新表單顯示
+    const idEl = document.getElementById('ff-id');
+    if(idEl) idEl.value = baseId;
+  }
+  if(!newRec.id){toast('無法產生客戶編號，請重試','error');return;}
 
   // 系統自動欄位
   const now = new Date().toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}).replace(/\//g,'-');
@@ -1643,8 +1654,13 @@ function toggleGuide(){
   const sidebar = document.getElementById('guideSidebar');
   const btn     = document.getElementById('guideToggle');
   if (!sidebar) return;
-  sidebar.classList.toggle('open');
-  if (btn) btn.style.background = sidebar.classList.contains('open') ? 'rgba(26,122,110,.2)' : '';
+  const isOpen = sidebar.classList.toggle('open');
+  sidebar.style.display      = isOpen ? 'flex' : 'none';
+  sidebar.style.flexDirection= 'column';
+  if (btn) {
+    btn.style.background = isOpen ? 'rgba(26,122,110,.2)' : '';
+    btn.style.color      = isOpen ? 'var(--teal-light)' : '';
+  }
 }
 
 function toast(msg,type){
