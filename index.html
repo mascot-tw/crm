@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>潛力客戶 CRM 系統 v39</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
+:root{
+  --navy:#1A2C52;--teal:#1A7A6E;--teal-light:#22a090;--gold:#C8A93A;--gold-light:#e8c84a;
+  --purple:#6C3483;--purple-light:#8a42a8;--green:#1E8449;--orange:#C85A1A;--red:#C0392B;
+  --blue:#1F618D;--gray:#4A5568;--ltgray:#F3F6FA;--midgray:#D0D7E3;
+  --bg:#0d1421;--bg2:#111927;--bg3:#162035;--border:#1e2d45;
+  --text:#e8edf5;--text-dim:#8899aa;--radius:10px;--shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;overflow-x:hidden;}
+/* 登入前隱藏主畫面：body 加 .not-logged-in class 時隱藏 */
+body.not-logged-in .topbar,
+body.not-logged-in .toolbar,
+body.not-logged-in .layout,
+body.not-logged-in .tabs-wrap,
+body.not-logged-in .progress-bar-wrap { display: none !important; }
+
+/* TOPBAR */
+.topbar{background:var(--navy);border-bottom:2px solid var(--teal);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.brand{display:flex;align-items:center;gap:10px;}
+.logo{width:30px;height:30px;background:var(--teal);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:#fff;}
+.brand-title{font-size:14px;font-weight:700;}
+.brand-sub{font-size:10px;color:var(--text-dim);margin-top:1px;}
+.topbar-pills{display:flex;gap:12px;align-items:center;}
+.pill{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:18px;padding:3px 10px;font-size:11px;}
+.pill b{font-family:'JetBrains Mono',monospace;font-size:12px;}
+.pill.t b{color:var(--gold);}.pill.a b{color:#4ade80;}.pill.b b{color:#fbbf24;}.pill.prog b{color:var(--teal-light);}
+/* LAYOUT — main area + optional guide sidebar */
+.layout{display:flex;height:calc(100vh - 52px);}
+.content-area{flex:1;overflow:auto;display:flex;flex-direction:column;}
+/* GUIDE SIDEBAR */
+.guide-sidebar{width:320px;min-width:320px;background:var(--bg2);border-left:1px solid var(--border);overflow-y:auto;display:none;flex-direction:column;}
+.guide-sidebar.open{display:flex;}
+.guide-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:5;}
+.guide-title{font-size:13px;font-weight:700;color:var(--gold);}
+.guide-body{padding:14px 16px;flex:1;}
+.guide-step{margin-bottom:18px;}
+.guide-step-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.step-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;}
+.step-title{font-size:12px;font-weight:700;color:var(--text);}
+.guide-step-body{padding-left:30px;font-size:11.5px;color:var(--text-dim);line-height:1.7;}
+.guide-step-body a{color:var(--teal-light);text-decoration:none;}
+.guide-step-body a:hover{text-decoration:underline;}
+.kw-box{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-top:6px;}
+.kw-tag{display:inline-block;background:rgba(26,122,110,.2);color:#34d399;border:1px solid rgba(52,211,153,.2);border-radius:4px;padding:1px 7px;font-size:10.5px;margin:2px;}
+.guide-section-title{font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.08em;text-transform:uppercase;margin:14px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+/* TOOLBAR */
+.toolbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:9px 20px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;flex-shrink:0;}
+.search-wrap{position:relative;flex:1;min-width:160px;max-width:260px;}
+.search-wrap input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:6px 9px 6px 30px;font-size:12px;font-family:inherit;outline:none;transition:border-color .2s;}
+.search-wrap input:focus{border-color:var(--teal);}
+.si{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none;}
+select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:6px 8px;font-size:11.5px;font-family:inherit;outline:none;cursor:pointer;}
+select:focus{border-color:var(--teal);}
+.btn{padding:6px 13px;border-radius:var(--radius);border:none;font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.btn-primary{background:var(--teal);color:#fff;}.btn-primary:hover{background:var(--teal-light);}
+.btn-gold{background:var(--gold);color:#1a2000;}.btn-gold:hover{background:var(--gold-light);}
+.btn-purple{background:var(--purple);color:#fff;}.btn-purple:hover{background:var(--purple-light);}
+.btn-orange{background:var(--orange);color:#fff;}.btn-orange:hover{background:#e06520;}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text-dim);}
+.btn-ghost:hover{border-color:var(--teal);color:var(--text);}
+.btn-ghost.active{border-color:var(--gold);color:var(--gold);}
+.ml-auto{margin-left:auto;}
+/* PROGRESS BAR */
+.progress-bar-wrap{background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 20px;flex-shrink:0;}
+.progress-label{font-size:10px;font-weight:700;color:var(--text-dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;}
+.progress-label span{color:var(--teal-light);}
+.progress-bars{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.prog-item{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;}
+.prog-item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+.prog-item-label{font-size:11px;font-weight:600;}
+.prog-item-pct{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;}
+.prog-track{height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;transition:width .4s ease;}
+.prog-detail{font-size:10px;color:var(--text-dim);margin-top:4px;}
+/* TABS */
+.tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;overflow-x:auto;flex-shrink:0;}
+.tab{padding:8px 14px;font-size:12px;font-weight:600;color:var(--text-dim);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .2s;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--text);border-bottom-color:var(--teal);}
+.tab-badge{display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,.1);border-radius:9px;padding:1px 6px;font-size:10px;margin-left:4px;}
+/* TABLE */
+.main{padding:14px 20px;flex:1;}
+.table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:auto;max-height:calc(100vh - 270px);box-shadow:var(--shadow);}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:var(--navy);position:sticky;top:0;z-index:10;}
+thead th{padding:8px 9px;text-align:left;font-size:10.5px;font-weight:700;color:var(--text-dim);letter-spacing:.05em;white-space:nowrap;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;}
+thead th:hover{color:var(--text);}
+.sort-icon{opacity:.3;margin-left:2px;font-size:9px;}
+thead th.sorted .sort-icon{opacity:1;color:var(--teal);}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s;cursor:pointer;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:rgba(26,122,110,.08);}
+tbody tr.selected{background:rgba(26,122,110,.15);}
+tbody td{padding:9px 9px;font-size:11.5px;vertical-align:middle;}
+.cell-id{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text-dim);}
+.cell-name{font-weight:600;color:var(--text);}
+.cell-sub{font-size:10.5px;color:var(--text-dim);margin-top:1px;}
+.grade{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;font-weight:800;font-size:12px;}
+.grade-A{background:rgba(30,132,73,.2);color:#4ade80;border:1px solid rgba(74,222,128,.3);}
+.grade-B{background:rgba(200,169,58,.2);color:#fbbf24;border:1px solid rgba(251,191,36,.3);}
+.grade-C{background:rgba(200,90,26,.2);color:#fb923c;border:1px solid rgba(251,146,60,.3);}
+.gbadge{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:5px;font-size:10.5px;font-weight:600;}
+.gbadge-A{background:rgba(26,122,110,.2);color:#34d399;border:1px solid rgba(52,211,153,.2);}
+.gbadge-B{background:rgba(26,44,82,.5);color:#93c5fd;border:1px solid rgba(147,197,253,.2);}
+.gbadge-C{background:rgba(108,52,131,.3);color:#c084fc;border:1px solid rgba(192,132,252,.2);}
+.status{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:18px;font-size:10.5px;font-weight:500;}
+.status::before{content:'';width:5px;height:5px;border-radius:50%;}
+.status-未接觸{background:rgba(100,116,139,.2);color:#94a3b8;}.status-未接觸::before{background:#64748b;}
+.status-已接觸{background:rgba(59,130,246,.15);color:#60a5fa;}.status-已接觸::before{background:#3b82f6;}
+.status-已提案{background:rgba(245,158,11,.15);color:#fbbf24;}.status-已提案::before{background:#f59e0b;}
+.status-試供貨中{background:rgba(139,92,246,.15);color:#a78bfa;}.status-試供貨中::before{background:#8b5cf6;}
+.status-正式合作{background:rgba(34,197,94,.15);color:#4ade80;}.status-正式合作::before{background:#22c55e;}
+.status-暫停{background:rgba(239,68,68,.15);color:#f87171;}.status-暫停::before{background:#ef4444;}
+.status-已刪除{background:rgba(100,116,139,.15);color:#64748b;text-decoration:line-through;}.status-已刪除::before{background:#475569;}
+/* 調查完成度標記 */
+.chk-dot{display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;}
+.chk-ok{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.2);}
+.chk-partial{background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.2);}
+.chk-none{background:rgba(100,116,139,.15);color:#94a3b8;border:1px solid rgba(100,116,139,.2);}
+.region-tag{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;color:var(--text-dim);}
+.rdot{width:5px;height:5px;border-radius:50%;}
+.region-北 .rdot{background:var(--teal);}
+.region-中 .rdot{background:var(--gold);}
+.region-南 .rdot{background:var(--purple-light);}
+.row-actions{display:flex;gap:4px;opacity:0;transition:opacity .15s;}
+tbody tr:hover .row-actions{opacity:1;}
+.act-btn{width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-dim);cursor:pointer;font-size:11px;transition:all .15s;}
+.act-btn:hover{border-color:var(--teal);color:var(--teal);background:rgba(26,122,110,.1);}
+.act-btn.del:hover{border-color:var(--red);color:var(--red);background:rgba(192,57,43,.1);}
+/* DETAIL PANEL */
+.detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;backdrop-filter:blur(4px);}
+.detail-overlay.open{display:flex;align-items:flex-start;justify-content:flex-end;}
+.detail-panel{width:480px;height:100vh;background:var(--bg2);border-left:1px solid var(--border);overflow-y:auto;animation:slideIn .2s ease;display:flex;flex-direction:column;}
+@keyframes slideIn{from{transform:translateX(40px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+.detail-header{padding:16px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:10;}
+.det-id{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);margin-bottom:3px;}
+.det-name{font-size:15px;font-weight:700;}
+.det-type{font-size:11px;color:var(--text-dim);margin-top:2px;}
+.close-btn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-dim);cursor:pointer;font-size:14px;flex-shrink:0;transition:all .15s;}
+.close-btn:hover{border-color:var(--red);color:var(--red);}
+.detail-body{padding:12px 16px;flex:1;}
+.det-sec{margin-bottom:16px;}
+.det-sec-title{font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.det-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.det-field-wide{grid-column:1/-1;}
+.det-label{font-size:10px;color:var(--text-dim);margin-bottom:2px;font-weight:600;}
+.det-val{font-size:11.5px;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:5px 8px;min-height:26px;word-break:break-all;}
+.det-val.memo{background:rgba(26,122,110,.08);border-color:rgba(26,122,110,.3);color:#5ecfbc;line-height:1.6;}
+.det-val.contact{background:rgba(26,44,82,.4);border-color:rgba(147,197,253,.2);color:#93c5fd;}
+/* 調查進度欄 in detail */
+.verify-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);}
+.verify-row:last-child{border-bottom:none;}
+.verify-label{font-size:12px;color:var(--text);}
+.verify-val{font-size:12px;color:var(--text-dim);flex:1;margin:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.vbtn{padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s;}
+.vbtn-ok{background:rgba(34,197,94,.2);color:#4ade80;border:1px solid rgba(34,197,94,.3);}
+.vbtn-ok:hover{background:rgba(34,197,94,.35);}
+.vbtn-no{background:rgba(100,116,139,.15);color:#94a3b8;border:1px solid var(--border);}
+.vbtn-no:hover{background:rgba(100,116,139,.25);}
+.detail-footer{padding:10px 16px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;background:var(--bg2);position:sticky;bottom:0;}
+.edit-hint{background:rgba(26,122,110,.1);border:1px solid rgba(26,122,110,.3);border-radius:7px;padding:9px 11px;font-size:11px;color:#5ecfbc;line-height:1.6;}
+.edit-hint b{display:block;margin-bottom:2px;color:#34d399;font-size:11.5px;}
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:13px;width:680px;max-width:95vw;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:popIn .2s ease;}
+@keyframes popIn{from{transform:scale(.96);opacity:0;}to{transform:scale(1);opacity:1;}}
+.modal-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:5;}
+.modal-title{font-size:13px;font-weight:700;}
+.modal-body{padding:12px 16px;}
+.fsec{font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.08em;text-transform:uppercase;margin:12px 0 7px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.fsec:first-child{margin-top:0;}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.ff{}.ff.wide{grid-column:1/-1;}
+.flabel{font-size:10.5px;font-weight:600;color:var(--text-dim);margin-bottom:3px;display:block;}
+.flabel span{color:var(--red);}
+.finput,.fselect,.ftextarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:6px 8px;font-size:11.5px;font-family:inherit;outline:none;transition:border-color .2s;}
+.finput:focus,.fselect:focus,.ftextarea:focus{border-color:var(--teal);}
+.ftextarea{resize:vertical;min-height:60px;}
+.modal-footer{padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:7px;justify-content:flex-end;position:sticky;bottom:0;background:var(--bg2);}
+/* CF MANAGER */
+.cf-list{display:flex;flex-direction:column;gap:7px;margin-bottom:12px;}
+.cf-item{display:flex;align-items:center;gap:7px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:7px 9px;}
+.cf-name{flex:1;font-size:12px;font-weight:600;}
+.cf-type{font-size:10.5px;color:var(--text-dim);background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;}
+.cf-add{display:grid;grid-template-columns:1fr auto auto;gap:7px;align-items:end;}
+/* EMPTY */
+.empty{text-align:center;padding:40px 20px;color:var(--text-dim);}
+/* TOAST */
+.toast-container{position:fixed;bottom:16px;right:16px;z-index:500;display:flex;flex-direction:column;gap:6px;}
+.toast{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 13px;font-size:11.5px;box-shadow:var(--shadow);display:flex;align-items:center;gap:7px;animation:toastIn .3s ease;min-width:180px;}
+@keyframes toastIn{from{transform:translateY(18px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.toast.success{border-left:3px solid var(--green);}
+.toast.error{border-left:3px solid var(--red);}
+.toast.info{border-left:3px solid var(--teal);}
+@media(max-width:768px){.topbar-pills{display:none;}.detail-panel{width:100vw;}.guide-sidebar{width:100vw;}}
+</style>
+</head>
+<body class="not-logged-in">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="brand">
+    <div class="logo" style="background:#C85A1A;font-size:20px;font-weight:900;color:#fff;">M</div>
+    <div><div class="brand-title">潛力客戶 CRM 系統</div><div class="brand-sub">日系快消品新通路開發 ── 北中南三類客群</div></div>
+  </div>
+  <div class="topbar-pills">
+    <div class="pill t"><span>總筆數</span><b id="st-total">0</b></div>
+    <div class="pill a"><span>A 級</span><b id="st-a">0</b></div>
+    <div class="pill b"><span>B 級</span><b id="st-b">0</b></div>
+    <div class="pill prog"><span>聯繫已確認</span><b id="st-verified">0</b></div>
+    <button onclick="doLogout()" style="background:rgba(192,57,43,.2);border:1px solid rgba(192,57,43,.4);border-radius:18px;color:#f87171;font-size:11px;padding:3px 12px;cursor:pointer;font-family:inherit;">⏻ 登出</button>
+  </div>
+</div>
+
+<div class="layout">
+<div class="content-area">
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="search-wrap"><span class="si">🔍</span><input type="text" id="searchInput" placeholder="搜尋店名、地區、品類…"></div>
+  <select id="filterGroup"><option value="">全部客群</option><option value="A">客群A</option><option value="B">客群B</option><option value="C">客群C</option></select>
+  <select id="filterRegion"><option value="">全部地區</option><option value="北">北部</option><option value="中">中部</option><option value="南">南部</option></select>
+  <select id="filterGrade"><option value="">全部等級</option><option value="A">A 級</option><option value="B">B 級</option><option value="C">C 級</option></select>
+  <select id="filterStatus"><option value="">全部狀態</option><option value="未接觸">未接觸</option><option value="已接觸">已接觸</option><option value="已提案">已提案</option><option value="試供貨中">試供貨中</option><option value="正式合作">正式合作</option><option value="暫停">暫停</option></select>
+  <select id="filterVerify"><option value="">全部完整度</option><option value="complete">聯繫已完整</option><option value="partial">部分填寫</option><option value="none">尚未填寫</option></select>
+  <div class="ml-auto" style="display:flex;gap:6px;flex-wrap:wrap;">
+    <button class="btn btn-ghost" id="btnExport" onclick="exportCSV()" style="display:none">⬇ 匯出CSV</button>
+    <button class="btn btn-orange" id="btnImport" onclick="openImport()" style="display:none">⬆ 匯入CSV</button>
+    <button class="btn btn-purple" id="btnCF" onclick="openCFManager()" style="display:none">⚙ 自訂欄位</button>
+    <button class="btn btn-gold" id="userMgmtBtn" onclick="openUserManager()" style="display:none">👥 帳號管理</button>
+    <button class="btn btn-primary" onclick="openAdd()">＋ 新增客戶</button>
+    <button class="btn btn-danger" id="btnReset" onclick="resetToDefault()" style="display:none">🔄 重置資料</button>
+  </div>
+</div>
+
+<!-- PROGRESS BARS -->
+<div class="progress-bar-wrap">
+  <div class="progress-label"><span>📊 北中南三類客群聯繫資料調查完成度</span><span id="prog-overall">整體 0%</span></div>
+  <div class="progress-bars" id="progressBars"></div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('all',this)">全部 <span class="tab-badge" id="tab-all-count">0</span></div>
+  <div class="tab" onclick="switchTab('A',this)">🟢 客群A 通路商 <span class="tab-badge" id="tab-A-count">0</span></div>
+  <div class="tab" onclick="switchTab('B',this)">🔵 客群B 攤商 <span class="tab-badge" id="tab-B-count">0</span></div>
+  <div class="tab" onclick="switchTab('C',this)">🟣 客群C 團購主 <span class="tab-badge" id="tab-C-count">0</span></div>
+</div>
+
+<!-- TABLE -->
+<div class="main">
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th style="width:52px" onclick="sortBy('id')">編號<span class="sort-icon">▲</span></th>
+        <th style="width:60px">客群</th>
+        <th style="width:68px" onclick="sortBy('region')">地區<span class="sort-icon">▲</span></th>
+        <th style="min-width:140px" onclick="sortBy('name')">名稱<span class="sort-icon">▲</span></th>
+        <th style="width:200px">手機 / 市話</th>
+        <th style="width:170px">Email</th>
+        <th style="width:90px" onclick="sortBy('status')">狀態<span class="sort-icon">▲</span></th>
+        <th style="width:38px" onclick="sortBy('grade')">等級<span class="sort-icon">▲</span></th>
+        <th style="width:80px">聯繫完整度</th>
+        <th style="width:90px">下次跟進</th>
+        <th style="width:68px">操作</th>
+      </tr></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <div id="emptyState" class="empty" style="display:none"><div style="font-size:32px;margin-bottom:8px;">📋</div><div>目前沒有符合條件的客戶資料</div></div>
+  </div>
+</div>
+
+</div><!-- /content-area -->
+
+<!-- GUIDE SIDEBAR -->
+
+</div><!-- /layout -->
+
+<!-- DETAIL PANEL -->
+<div class="detail-overlay" id="detailOverlay">
+  <div class="detail-panel">
+    <div class="detail-header">
+      <div>
+        <div class="det-id" id="d-id"></div>
+        <div class="det-name" id="d-name"></div>
+        <div class="det-type" id="d-type"></div>
+      </div>
+      <button class="close-btn" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+    <div class="detail-footer">
+      <div class="edit-hint">
+        <b>✏️ 編輯此客戶資料</b>
+        點「編輯資料」可更新：合作狀態、聯繫方式、跟進日期、備忘錄。儲存後自動記錄儲存者與時間。
+      </div>
+      <div style="display:flex;gap:7px;">
+        <button class="btn btn-primary" style="flex:1" onclick="editFromDetail()">✏️ 編輯資料</button>
+        <button class="btn btn-ghost" onclick="closeDetail()">關閉</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">新增客戶</div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveRecord()">💾 儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOM FIELDS MODAL -->
+<div class="modal-overlay" id="cfOverlay">
+  <div class="modal" style="width:500px;">
+    <div class="modal-header">
+      <div class="modal-title">⚙ 自訂欄位管理</div>
+      <button class="close-btn" onclick="closeCFManager()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11.5px;color:var(--text-dim);margin-bottom:12px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:9px 11px;line-height:1.7;">
+        📌 此處新增的欄位會出現在所有客戶的詳細資料與編輯視窗，可記錄企業特定資訊（如：年度預算、負責業務、網站URL等）。
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px;">現有自訂欄位</div>
+      <div class="cf-list" id="cfList"></div>
+      <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.08em;text-transform:uppercase;margin:14px 0 7px;padding-top:12px;border-top:1px solid var(--border);">新增自訂欄位</div>
+      <div class="cf-add">
+        <div><label class="flabel">欄位名稱 <span>*</span></label><input class="finput" id="cf-newname" placeholder="例：年度預算、負責業務、網站URL…"></div>
+        <div><label class="flabel">類型</label><select class="fselect" id="cf-newtype"><option value="text">文字</option><option value="number">數字</option><option value="date">日期</option><option value="textarea">長文字</option></select></div>
+        <button class="btn btn-primary" onclick="addCF()" style="margin-top:17px;">＋ 新增</button>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeCFManager()">關閉</button></div>
+  </div>
+</div>
+
+<!-- IMPORT CSV MODAL -->
+<div class="modal-overlay" id="importOverlay">
+  <div class="modal" style="width:580px;">
+    <div class="modal-header">
+      <div class="modal-title">⬆ 批量匯入 CSV（管理者專用）</div>
+      <button class="close-btn" onclick="closeImport()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:rgba(200,169,58,.1);border:1px solid rgba(200,169,58,.3);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#fbbf24;line-height:1.8;">
+        <b style="display:block;margin-bottom:6px;font-size:13px;">⚠ 匯入前必讀</b>
+        ① 請先點「<b>⬇ 匯出CSV</b>」取得目前資料備份<br>
+        ② 用 Excel 開啟 CSV，核定新增/修改的客戶資料<br>
+        ③ 儲存為 CSV 格式（UTF-8）<br>
+        ④ 選擇「<b>僅新增</b>」或「<b>全量覆蓋</b>」模式後匯入<br>
+        ⑤ 匯入後系統資料立即更新，所有業務顧問可見
+      </div>
+      <div style="margin-bottom:14px;">
+        <label class="flabel">匯入模式</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px;">
+          <label style="display:flex;align-items:flex-start;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;cursor:pointer;" id="modeAppendLabel">
+            <input type="radio" name="importMode" value="append" checked style="margin-top:2px;" onchange="updateModeStyle()">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:#4ade80;">➕ 僅新增</div>
+              <div style="font-size:11px;color:var(--text-dim);margin-top:3px;">只新增CSV中ID不存在的客戶，已有資料不受影響</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;cursor:pointer;" id="modeOverwriteLabel">
+            <input type="radio" name="importMode" value="overwrite" style="margin-top:2px;" onchange="updateModeStyle()">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:#f87171;">🔄 全量覆蓋</div>
+              <div style="font-size:11px;color:var(--text-dim);margin-top:3px;">完全取代現有資料，請務必先匯出備份</div>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label class="flabel">選擇 CSV 檔案 <span style="color:var(--red)">*</span></label>
+        <input type="file" id="csvFileInput" accept=".csv" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:12px;font-family:inherit;">
+      </div>
+      <div id="importPreview" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11.5px;color:var(--text-dim);max-height:120px;overflow-y:auto;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeImport()">取消</button>
+      <button class="btn btn-ghost" onclick="exportCSV()" style="border-color:var(--teal);color:var(--teal);">先匯出備份</button>
+      <button class="btn btn-primary" onclick="doImportCSV()">⬆ 確認匯入</button>
+    </div>
+  </div>
+</div>
+
+<!-- 指派客戶 Modal -->
+<div class="modal-overlay" id="assignOverlay" style="z-index:600;">
+  <div class="modal" style="width:640px;max-height:85vh;display:flex;flex-direction:column;">
+    <div class="modal-header">
+      <div class="modal-title">🎯 指派客戶給業務顧問</div>
+      <button class="close-btn" onclick="closeAssignPicker()">✕</button>
+    </div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;">
+      <input id="assignSearch" type="text" placeholder="搜尋客戶編號、名稱、地區…"
+        oninput="filterAssignList()"
+        style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 12px;font-size:12px;font-family:inherit;outline:none;">
+      <button onclick="selectAllAssign(true)" style="padding:6px 10px;border-radius:6px;background:rgba(26,122,110,.2);border:1px solid var(--teal);color:var(--teal-light);cursor:pointer;font-size:11px;">全選</button>
+      <button onclick="selectAllAssign(false)" style="padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text-dim);cursor:pointer;font-size:11px;">清除</button>
+    </div>
+    <div id="assignList" style="flex:1;overflow-y:auto;padding:12px 16px;"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <div id="assignCount" style="font-size:12px;color:var(--text-dim);">已選 0 筆</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="closeAssignPicker()" class="btn btn-ghost">取消</button>
+        <button onclick="confirmAssign()" class="btn btn-primary">✅ 確認指派</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// FIXED FIELDS
+// ══════════════════════════════════════════════════════
+const FIXED_FIELDS = [
+  {key:'id',      label:'客戶編號',        type:'text',    req:true,  sec:'基本資料', half:true},
+  {key:'group',   label:'客群類型',        type:'select',  req:true,  sec:'基本資料', half:true,
+   opts:[{v:'A',l:'客群A 中小型通路商'},{v:'B',l:'客群B 獨立店鋪/攤商'},{v:'C',l:'客群C 社群電商團購主'}]},
+  {key:'name',    label:'店家名稱/暱稱',   type:'text',    req:true,  sec:'基本資料', half:false},
+  {key:'region',  label:'所在地區',        type:'text',    req:true,  sec:'基本資料', half:true},
+  {key:'biztype', label:'業態/類型',       type:'text',    req:false, sec:'基本資料', half:true},
+  {key:'scale',   label:'規模指標',        type:'text',    req:false, sec:'基本資料', half:true},
+  // 聯繫資料
+  {key:'contact', label:'聯絡窗口（姓名+職稱）', type:'text', req:false, sec:'📞 聯繫資料', half:true},
+  {key:'mobile',  label:'📱 手機號碼',     type:'text',    req:false, sec:'📞 聯繫資料', half:true},
+  {key:'phone',   label:'☎ 市話（含分機）', type:'text',   req:false, sec:'📞 聯繫資料', half:true},
+  {key:'email',   label:'✉ 電子郵件 Email', type:'email',  req:false, sec:'📞 聯繫資料', half:true},
+  {key:'line',    label:'💬 LINE ID',      type:'text',    req:false, sec:'📞 聯繫資料', half:true},
+  {key:'fb',      label:'FB / IG 帳號',    type:'text',    req:false, sec:'📞 聯繫資料', half:true},
+  // 採購資訊
+  {key:'taxId',   label:'統一編號',          type:'text', req:false, sec:'📍 基本資料', half:true  },
+  {key:'supplier',label:'現有供應商（推估）', type:'text', req:false, sec:'💰 採購資訊', half:false},
+  {key:'monthly', label:'月採購額估（萬）', type:'text',   req:false, sec:'💰 採購資訊', half:true},
+  {key:'payment', label:'帳期偏好',        type:'text',    req:false, sec:'💰 採購資訊', half:true},
+  {key:'category',label:'主要進貨品類',    type:'text',    req:false, sec:'💰 採購資訊', half:false},
+  // 跟進追蹤
+  {key:'grade',   label:'初評等級',        type:'select',  req:false, sec:'📅 跟進追蹤', half:true,
+   opts:[{v:'A',l:'A 級 — 優先開發'},{v:'B',l:'B 級 — 培育觀察'},{v:'C',l:'C 級 — 長期觀察'}]},
+  {key:'status',  label:'合作狀態',        type:'select',  req:false, sec:'📅 跟進追蹤', half:true,
+   opts:[{v:'未接觸',l:'未接觸'},{v:'已接觸',l:'已接觸'},{v:'已提案',l:'已提案'},{v:'試供貨中',l:'試供貨中'},{v:'正式合作',l:'正式合作'},{v:'暫停',l:'暫停'},{v:'已刪除',l:'🗑 已刪除（保留記錄）'}]},
+  {key:'firstdate',label:'首次接觸日期',   type:'date',    req:false, sec:'📅 跟進追蹤', half:true},
+  {key:'nextdate', label:'下次跟進日期',   type:'date',    req:false, sec:'📅 跟進追蹤', half:true},
+  {key:'total',   label:'累計採購金額（NT$）', type:'text', req:false, sec:'📅 跟進追蹤', half:true},
+  {key:'source',  label:'資料來源管道',    type:'text',    req:false, sec:'📅 跟進追蹤', half:true},
+  {key:'memo',    label:'🔑 跟進備忘錄（切入點）', type:'textarea', req:false, sec:'📅 跟進追蹤', half:false},
+  // 系統自動欄位（唯讀，buildForm 會自動跳過，僅在詳細面板顯示）
+  {key:'createdBy',   label:'📌 建立者',     type:'readonly', req:false, sec:'📋 系統記錄', half:true},
+  {key:'lastUpdated', label:'🕐 最後儲存時間', type:'readonly', req:false, sec:'📋 系統記錄', half:true},
+  {key:'updatedBy',   label:'✏️ 最後儲存者', type:'readonly', req:false, sec:'📋 系統記錄', half:true},
+];
+
+// ══════════════════════════════════════════════════════
+// INITIAL 9 RECORDS
+// ══════════════════════════════════════════════════════
+const INITIAL_DATA = [
+  // ══════════ 客群A：中小型通路商／連鎖賣場 ══════════
+  // ── 北部 A ──
+  {id:'A001',group:'A',name:'日藥本舖－中山門市',region:'北部—台北市中山區',biztype:'日系藥妝連鎖',scale:'全台38+門市',contact:'總公司採購部',mobile:'（請洽總公司）',phone:'02-2511-6805',email:'service@jpmed.com.tw',line:'@jpmed',fb:'fb.com/jp.medical',supplier:'日藥本舖股份有限公司',monthly:'大量',payment:'月結',category:'日系藥品/保健/美妝/生活用品',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-05-27',total:'0',taxId:'53536349',source:'findcoupon.tw 門市資訊＋公司登記（統編53536349）',memo:'全台最大日系藥妝連鎖，總公司：台北市大同區南京西路46號2樓，代表人謝德璋，總機02-25559918。切入點：補充清潔/個護正品授權品項，強調多品牌一站供貨。'},
+  {id:'A002',group:'A',name:'日藥本舖－士林夜市門市',region:'北部—台北市士林區',biztype:'日系藥妝連鎖門市',scale:'單店（夜市商圈）',contact:'門市店長',mobile:'（請電洽）',phone:'02-2883-8261',email:'service@jpmed.com.tw',line:'@jpmed',fb:'fb.com/jp.medical',supplier:'日藥本舖股份有限公司',monthly:'20~40',payment:'月結',category:'日系生活用品/藥品/美妝',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-05-28',total:'0',taxId:'無',source:'findcoupon.tw 日藥本舖台北門市列表',memo:'地址：台北市士林區文林路25號。士林夜市商圈，觀光+在地客，客流量大。'},
+  {id:'A003',group:'A',name:'日藥本舖－南門門市',region:'北部—台北市中正區',biztype:'日系藥妝連鎖門市',scale:'單店',contact:'門市店長',mobile:'（請電洽）',phone:'02-2321-3895',email:'service@jpmed.com.tw',line:'@jpmed',fb:'fb.com/jp.medical',supplier:'日藥本舖股份有限公司',monthly:'15~30',payment:'月結',category:'日系生活用品/藥品/保健品',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-05-29',total:'0',taxId:'無',source:'findcoupon.tw 日藥本舖台北門市列表',memo:'地址：台北市中正區羅斯福路一段20號。台大商圈，學生+上班族客層，個護/清潔品需求強。'},
+  // ── 中部 A ──
+  {id:'A004',group:'A',name:'日藥本舖－台中一中門市',region:'中部—台中市北區',biztype:'日系藥妝連鎖門市',scale:'單店（學區商圈）',contact:'門市店長',mobile:'（請電洽）',phone:'04-2225-5166',email:'service@jpmed.com.tw',line:'@jpmed',fb:'fb.com/jp.medical',supplier:'日藥本舖股份有限公司',monthly:'20~40',payment:'月結',category:'日系生活用品/藥品/美妝',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-06-02',total:'0',taxId:'無',source:'findcoupon.tw 日藥本舖台中門市列表',memo:'地址：台中市北區尊賢街7號1樓。一中商圈，學生族群消費力強，個護/美妝品項需求高。'},
+  {id:'A005',group:'A',name:'CREATIVE DEPT.（日系概念選物）',region:'中部—台中市北區',biztype:'日系品牌概念選物店',scale:'獨立門市（一中商圈）',contact:'店主/採購',mobile:'（請電洽）',phone:'04-2225-8131',email:'（請電洽）',line:'@filter_017',fb:'fb.com/Filter017CREALIVE',supplier:'（獨立進貨，待確認）',monthly:'3~8',payment:'現金/月結14天',category:'日系生活用品/文具/選物',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-06-03',total:'0',taxId:'無',source:'台中旅遊案內所 + 67taiwan.com 報導確認',memo:'地址：台中市北區三民路三段201巷10號。週二至四14:00-21:30，週五至日13:00-22:30，週一公休。官網 filter017.com，LINE @filter_017，社群活躍，品項媒合高。'},
+  // ── 南部 A ──
+  {id:'A006',group:'A',name:'日藥本舖－台南中山門市',region:'南部—台南市中西區',biztype:'日系藥妝連鎖門市',scale:'單店',contact:'門市店長',mobile:'（請電洽）',phone:'06-225-0828',email:'service@jpmed.com.tw',line:'@jpmed',fb:'fb.com/jpmed029',supplier:'日藥本舖股份有限公司',monthly:'15~30',payment:'月結',category:'日系藥品/保健/美妝/生活用品',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-06-05',total:'0',taxId:'無',source:'智慧商業獅 bizlion.com + LINE熱點（台南中山門市）',memo:'地址：台南市中西區中山路138號。週一到週日10:00-22:00。台南市區核心商圈，赤崁樓觀光人潮+在地客。'},
+  {id:'A007',group:'A',name:'日藥本舖－高雄六合旗艦館',region:'南部—高雄市新興區',biztype:'日系藥妝連鎖旗艦館（博物館概念）',scale:'旗艦門市',contact:'門市店長/採購',mobile:'（請電洽）',phone:'07-286-8077',email:'service@jpmed.com.tw',line:'@jpmed',fb:'fb.com/jp.medical',supplier:'日藥本舖股份有限公司',monthly:'30~60',payment:'月結',category:'日系藥品/保健/美妝/生活用品',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-06-05',total:'0',taxId:'無',source:'findcoupon.tw 高雄門市列表（日藥本舖博物館-高雄館）',memo:'地址：高雄市新興區六合二路10號。旗艦館，品項齊全，六合夜市商圈，觀光+在地客。'},
+  {id:'A008',group:'A',name:'日藥本舖－高雄瑞豐門市',region:'南部—高雄市鼓山區',biztype:'日系藥妝連鎖門市',scale:'單店',contact:'門市店長',mobile:'（請電洽）',phone:'07-522-2196',email:'service@jpmed.com.tw',line:'@jpmed',fb:'fb.com/jp.medical',supplier:'日藥本舖股份有限公司',monthly:'20~35',payment:'月結',category:'日系藥品/保健/美妝/生活用品',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-06-08',total:'0',taxId:'無',source:'findcoupon.tw 高雄門市列表',memo:'地址：高雄市鼓山區裕誠路1101號。鼓山區高消費住宅商圈，客層穩定。'},
+  // ══════════ 客群B：獨立店鋪／攤商 ══════════
+  // ── 北部 B ──
+  {id:'B001',group:'B',name:'士林公有市場日用品攤',region:'北部—台北市士林區',biztype:'傳統市場固定攤位（日用品）',scale:'士林市場B1，2025年4月重新開幕',contact:'攤主（現場洽詢）',mobile:'（現場取得）',phone:'02-2882-6151（市場管理）',email:'（現場取得）',line:'（現場取得）',fb:'（無）',supplier:'環南市場批發商',monthly:'3~6',payment:'現金',category:'日用品/清潔/個人衛生',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-05-29',total:'0',taxId:'無',source:'Wikipedia士林夜市 + 2025年4月開幕報導（冰淇淋貓部落格）',memo:'地址：台北市士林區基河路101號B1。2025年4月25日重新開幕，35家商家。建議下午2點前往，攤主多熟客型。需現場取得聯繫方式。'},
+  {id:'B002',group:'B',name:'迪化街日用雜貨老店（代表）',region:'北部—台北市大同區',biztype:'迪化街傳統批發雜貨老店',scale:'店面1~2間，批發+零售',contact:'老闆（現場洽詢）',mobile:'（現場取得）',phone:'（現場取得）',email:'（現場取得）',line:'（現場取得）',fb:'（查無）',supplier:'進口商直接往來',monthly:'5~15',payment:'現金/票期',category:'南北雜貨/日用品/清潔品',grade:'B',status:'未接觸',firstdate:'',nextdate:'2026-06-05',total:'0',taxId:'無',source:'現場調查建議（迪化街一段50~200號沿線）',memo:'迪化街是台北最大南北貨批發商圈，日系清潔品需求高。建議現場掃街，目標：迪化街一段50~200號日用雜貨店，現場取得聯繫後更新本筆。'},
+  // ── 中部 B ──
+  {id:'B003',group:'B',name:'台中第二市場日用品區攤商',region:'中部—台中市中區',biztype:'百年傳統市場固定攤位（日用品）',scale:'第二市場，54店舖+200固定攤',contact:'攤主（現場洽詢）',mobile:'（現場取得）',phone:'04-2225-4222（市場管理）',email:'（現場取得）',line:'（現場取得）',fb:'（無）',supplier:'台中環中路批發行',monthly:'3~6',payment:'現金',category:'家用清潔/廚房用品/日用品',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-05-29',total:'0',taxId:'無',source:'Medium部落格 + 旅遊網站多筆資料交叉確認',memo:'地址：台中市中區三民路2段87號。7:00~20:00，週一公休。日用品區在市場中段。週二~六上午9~11點拜訪最佳，帶EBiSU牙刷作禮品。'},
+  {id:'B004',group:'B',name:'千秋事業有限公司（清潔品批發）',region:'中部—台中市北屯區',biztype:'清潔用品批發商（B2B倉儲型）',scale:'倉儲型，FB粉專活躍',contact:'業務/老闆',mobile:'（請電洽）',phone:'04-2259-3345',email:'（FB私訊取得）',line:'@abc12345',fb:'fb.com/eternalclean',supplier:'自行進貨',monthly:'20~50',payment:'月結',category:'清潔用品/免洗餐具/衛生紙批發',grade:'B',status:'未接觸',firstdate:'',nextdate:'2026-06-08',total:'0',taxId:'無',source:'Facebook粉專搜尋「台中清潔用品批發」直接確認',memo:'地址：台中市北屯區環中路一段1258號。主業清潔品批發，MIYOSHI無添加/花王系列是可切入的日系品類。評B是主業非日系，需確認日系品項採購意願。'},
+  // ── 南部 B ──
+  {id:'B005',group:'B',name:'炎光藥行股份有限公司',region:'南部—台南市中西區',biztype:'西藥行（零售）',scale:'單一門市，有公司登記',contact:'負責人/採購',mobile:'（請電洽）',phone:'06-220-0238',email:'（現場取得）',line:'（現場取得）',fb:'（查無）',supplier:'傳統藥品批發商',monthly:'3~8',payment:'現金/月結30天',category:'藥品/個人護理/日系保健品',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-06-04',total:'0',taxId:'無',source:'台南市政府資料開放平台（官方資料，最可信）',memo:'地址：台南市中西區西門路二段176號。官方認證。切入點：日系保健品/個護品進口補充，正品授權書是最強工具。'},
+  {id:'B006',group:'B',name:'福樂屋（有日語服務）',region:'南部—台南市中西區',biztype:'生活雜貨選物店（有日語服務）',scale:'單一門市',contact:'老闆（現場洽詢）',mobile:'（現場取得）',phone:'06-221-2727',email:'（現場取得）',line:'（現場取得）',fb:'（查無）',supplier:'（待確認）',monthly:'2~5',payment:'現金',category:'生活雜貨/選物/日本商品',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-06-04',total:'0',taxId:'無',source:'台南市政府資料開放平台（官方資料，英語＋日語服務認證）',memo:'地址：台南市中西區忠義路二段113號。官方認證有日語服務，老闆有日系品偏好，最容易接受日系進口商品。強烈優先拜訪。'},
+  {id:'B007',group:'B',name:'大進利商行（三鳳中街）',region:'南部—高雄市三民區',biztype:'南北貨批發老店（傳承三代）',scale:'三鳳中街老店，批發+零售+網路宅配',contact:'老闆（現場洽詢）',mobile:'（現場取得）',phone:'07-285-4656',email:'（查無）',line:'（現場取得）',fb:'（查無）',supplier:'進口商直接往來',monthly:'10~25',payment:'現金/票期',category:'南北貨/乾貨/日本食品/雜貨',grade:'B',status:'未接觸',firstdate:'',nextdate:'2026-06-08',total:'0',taxId:'無',source:'大進利商行官網 2854656.com.tw（自有官網，資料可信）',memo:'高雄市三民區三鳳中街（號碼現場確認）。傳承三代，有官網+宅配，接受現代通路。日系清潔/個護品是可切入新品類，官網：2854656.com.tw。'},
+  // ══════════ 客群C：社群電商／團購主 ══════════
+  // ── 北部 C ──
+  {id:'C001',group:'C',name:'漾媽咪快樂購（已確認）',region:'北部—全台（FB粉專為主）',biztype:'Facebook粉專團購主',scale:'粉絲58,550人（已確認）',contact:'漾媽咪（粉專主）',mobile:'（FB私訊取得）',phone:'（FB私訊取得）',email:'（FB私訊取得）',line:'（FB私訊取得）',fb:'fb.com/mamihappybuy',supplier:'（待確認）',monthly:'（依開團量）',payment:'先收款後出貨',category:'生活好物/媽媽選品/日系商品',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-05-22',total:'0',taxId:'無',source:'Facebook搜尋「媽咪快樂購」，粉專公開資訊直接確認',memo:'粉絲58,550人，規模最大。定位「越買越Young的優質商品」，主攻媽媽族群。今日可直接FB私訊 fb.com/mamihappybuy，附利潤試算表+BOTANIST素材包。'},
+  {id:'C002',group:'C',name:'板橋欣欣媽媽好物（待FB確認）',region:'北部—新北市板橋區',biztype:'Facebook社團團購主',scale:'（需FB搜尋「板橋媽媽日系團購」確認）',contact:'社團主（FB私訊取得）',mobile:'（FB私訊取得）',phone:'（FB私訊取得）',email:'（FB私訊取得）',line:'（FB私訊取得）',fb:'FB搜尋：板橋 媽媽 日系 好物 團購',supplier:'蝦皮自購（推估）',monthly:'（依開團量）',payment:'先收款後出貨',category:'BOTANIST/P&G/Pigeon貝親',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-05-23',total:'0',taxId:'無',source:'模組四設計情境，待FB搜尋確認真實帳號',memo:'操作：FB搜尋「板橋媽媽團購 日系」，篩選近30天有開日系品項的社團主，確認後更新本筆資料。'},
+  // ── 中部 C ──
+  {id:'C003',group:'C',name:'台中日系媽媽選品（待FB確認）',region:'中部—台中市',biztype:'Facebook社團/粉專團購主',scale:'（需FB搜尋「台中日系清潔媽媽」確認）',contact:'社團主（FB私訊取得）',mobile:'（FB私訊取得）',phone:'（FB私訊取得）',email:'（FB私訊取得）',line:'（FB私訊取得）',fb:'FB搜尋：台中 日系清潔 媽媽 團購',supplier:'代購商（推估）',monthly:'（依開團量）',payment:'先收款後出貨',category:'MIYOSHI無添加/KRACIE/日系清潔',grade:'A',status:'未接觸',firstdate:'',nextdate:'2026-05-23',total:'0',taxId:'無',source:'模組四設計情境，待FB搜尋確認真實帳號',memo:'操作：FB搜尋「台中日系清潔 團購」，篩選近30天有開團貼文者。MIYOSHI無添加（48%毛利）是最強切入誘因。'},
+  // ── 南部 C ──
+  {id:'C004',group:'C',name:'高雄南部日本好物（待IG確認）',region:'南部—高雄市',biztype:'IG+FB雙平台團購主',scale:'（需IG搜尋 #高雄團購 #日本好物 確認）',contact:'版主（IG私訊取得）',mobile:'（IG私訊取得）',phone:'（IG私訊取得）',email:'（IG私訊取得）',line:'（IG私訊取得）',fb:'IG搜尋：#高雄團購 #日本好物',supplier:'蝦皮/代購混用（推估）',monthly:'（依開團量）',payment:'先收款後出貨',category:'Pigeon貝親/熊野油脂/日系美妝',grade:'B',status:'未接觸',firstdate:'',nextdate:'2026-05-24',total:'0',taxId:'無',source:'模組四設計情境，待IG搜尋 #高雄團購 #日本好物 確認帳號',memo:'操作：IG搜尋「#高雄團購 #日本好物」，篩選近30天有開日系品項的帳號。Pigeon貝親獨家早期供貨是切入誘因。'}
+];
+
+// ══════════════════════════════════════════════════════
+// GOOGLE SHEET 後端設定
+// ══════════════════════════════════════════════════════
+const API_URL = 'https://script.google.com/macros/s/AKfycbxRts55cWfnWjXOmInPyNwEgTU5RjtmklZYqpik-4ZmfpDOoyg4Z9bHjkZc_ab9yGNM8g/exec';
+
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+let records=[], customFields=[], currentTab='all', sortKey='id', sortDir=1, detailId=null, editingId=null;
+let currentUser = null; // { account, name, role, token, assignedIds }
+
+// ══════════════════════════════════════════════════════
+// API 工具（全部改用 GET，避免 CORS 問題）
+// ══════════════════════════════════════════════════════
+async function apiGet(params) {
+  // 確保 token 是最新的（v4 每日重新產生）
+  const token = currentUser?.token || '';
+  const q = new URLSearchParams({
+    ...params,
+    account: currentUser?.account||'',
+    token:   token
+  });
+  const url = API_URL + '?' + q.toString();
+  const res = await fetch(url, { method:'GET', mode:'cors' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+async function apiPost(payload) {
+  // 小資料（非 saveRecords）用 GET，大資料用 POST
+  const isLarge = payload.action === 'saveRecords' ||
+                  (payload.record && JSON.stringify(payload).length > 1500);
+
+  if (isLarge) {
+    // 大資料用 POST（避免 URL 長度限制）
+    const body = JSON.stringify({
+      ...payload,
+      account: currentUser?.account||'',
+      token:   currentUser?.token||''
+    });
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      mode:   'cors',
+      headers: { 'Content-Type': 'text/plain' }, // text/plain 避免 CORS preflight
+      body:   body
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  } else {
+    // 小資料用 GET（穩定可靠）
+    const flat = {
+      action:  payload.action || '',
+      account: currentUser?.account||'',
+      token:   currentUser?.token||'',
+      _data:   JSON.stringify(payload)
+    };
+    const q = new URLSearchParams(flat);
+    const res = await fetch(API_URL + '?' + q.toString(), { method:'GET', mode:'cors' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// 登入畫面
+// ══════════════════════════════════════════════════════
+const GOOGLE_CLIENT_ID = '84659287413-tvgl0sjja2jd4l9sh8dttle3511u9krc.apps.googleusercontent.com';
+
+function showLoginScreen() {
+  // 確保主畫面隱藏
+  document.body.classList.add('not-logged-in');
+  currentUser = null;
+
+  const old = document.getElementById('loginScreen');
+  if (old) old.remove();
+
+  const div = document.createElement('div');
+  div.id = 'loginScreen';
+  div.style.cssText = 'position:fixed;inset:0;background:#0d1421;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:Noto Sans TC,sans-serif;';
+  div.innerHTML = `
+    <div style="background:#111927;border:1px solid #1e2d45;border-radius:16px;padding:40px 36px;width:400px;box-shadow:0 20px 60px rgba(0,0,0,.6);">
+      <div style="text-align:center;margin-bottom:32px;">
+        <div style="width:80px;height:80px;background:#C85A1A;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:900;color:#fff;margin:0 auto 16px;">M</div>
+        <div style="font-size:20px;font-weight:700;color:#e8edf5;">國際柑仔店 CRM</div>
+        <div style="font-size:12px;color:#8899aa;margin-top:6px;">業務顧問專屬系統</div>
+      </div>
+
+      <!-- Google 登入按鈕 -->
+      <div id="googleSignInBtn" style="display:flex;justify-content:center;margin-bottom:20px;"></div>
+
+      <!-- 分隔線 -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+        <div style="flex:1;height:1px;background:#1e2d45;"></div>
+        <span style="font-size:11px;color:#4A5568;">或使用帳號密碼登入</span>
+        <div style="flex:1;height:1px;background:#1e2d45;"></div>
+      </div>
+
+      <!-- 帳號密碼登入（備用） -->
+      <div style="margin-bottom:12px;">
+        <input id="loginAccount" type="text" placeholder="帳號"
+          style="width:100%;background:#162035;border:1px solid #1e2d45;border-radius:8px;color:#e8edf5;padding:10px 12px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
+          onkeydown="if(event.key==='Enter')document.getElementById('loginPwd').focus()">
+      </div>
+      <div style="margin-bottom:16px;">
+        <input id="loginPwd" type="password" placeholder="密碼"
+          style="width:100%;background:#162035;border:1px solid #1e2d45;border-radius:8px;color:#e8edf5;padding:10px 12px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button onclick="doLogin()"
+        style="width:100%;background:#1A2C52;color:#fff;border:1px solid #1e2d45;border-radius:8px;padding:10px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;">
+        帳號密碼登入
+      </button>
+
+      <div id="loginError" style="color:#f87171;font-size:12px;text-align:center;margin-top:10px;display:none;"></div>
+      <div style="font-size:11px;color:#4A5568;text-align:center;margin-top:20px;line-height:1.6;">
+        如需申請帳號請聯繫業務客服專線
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+
+  // 初始化 Google 登入按鈕
+  if (window.google && window.google.accounts) {
+    renderGoogleBtn();
+  } else {
+    // GSI 尚未載入，等待後初始化
+    window.addEventListener('load', renderGoogleBtn);
+  }
+}
+
+function renderGoogleBtn() {
+  try {
+    // 停用 Google One Tap 自動選取，強制每次都顯示登入畫面
+    google.accounts.id.disableAutoSelect();
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleLogin,
+      auto_select: false,
+      cancel_on_tap_outside: true
+    });
+    google.accounts.id.renderButton(
+      document.getElementById('googleSignInBtn'),
+      {
+        theme: 'filled_blue',
+        size: 'large',
+        width: 328,
+        text: 'signin_with',
+        locale: 'zh-TW'
+      }
+    );
+  } catch(e) {
+    console.log('Google 登入初始化失敗:', e);
+  }
+}
+
+async function handleGoogleLogin(googleResponse) {
+  showLoginError('Gmail 驗證中…');
+  try {
+    // 解碼 JWT token 取得 Gmail
+    const payload = JSON.parse(atob(googleResponse.credential.split('.')[1]));
+    const gmail   = payload.email;
+    const name    = payload.name;
+
+    // 用 Gmail 向 Apps Script 驗證
+    const q = new URLSearchParams({
+      action: 'loginWithGoogle',
+      gmail:  gmail,
+      name:   name
+    });
+    const res = await fetch(API_URL + '?' + q, { method:'GET' });
+    const data = await res.json();
+
+    if (data.ok) {
+      currentUser = { account:data.account, name:data.name, role:data.role, token:data.token, assignedIds:data.assignedIds||[], gmail:gmail };
+      document.getElementById('loginScreen')?.remove();
+      // 登入後移除隱藏 class，顯示主畫面
+      document.body.classList.remove('not-logged-in');
+      updateTopbarUser();
+      startAutoLogout();
+      loadData();
+    } else {
+      // Gmail 未授權 → 引導申請
+      showLoginError('此 Gmail 尚未授權，正在引導申請…');
+      setTimeout(() => showApplyScreen(gmail, name), 1200);
+    }
+  } catch(e) {
+    showLoginError('Gmail 登入失敗，請改用帳號密碼登入');
+  }
+}
+
+async function doLogin() {
+  const account = (document.getElementById('loginAccount')?.value || '').trim();
+  const pwd     = (document.getElementById('loginPwd')?.value || '').trim();
+  if (!account || !pwd) { showLoginError('請填入帳號和密碼'); return; }
+  showLoginError('驗證中…');
+  try {
+    const q = new URLSearchParams({ action:'login', account:account, password:pwd });
+    const res = await fetch(API_URL + '?' + q.toString(), { method:'GET', mode:'cors' });
+    const data = await res.json();
+    if (data.ok) {
+      currentUser = { account:data.account, name:data.name, role:data.role, token:data.token, assignedIds:data.assignedIds||[] };
+      document.getElementById('loginScreen')?.remove();
+      // 登入後移除隱藏 class，顯示主畫面
+      document.body.classList.remove('not-logged-in');
+      updateTopbarUser();
+      startAutoLogout();
+      loadData();
+    } else {
+      showLoginError(data.error || '帳號或密碼錯誤');
+    }
+  } catch(e) {
+    showLoginError('連線失敗，請確認網路');
+  }
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+
+// ── 申請帳號畫面 ─────────────────────────────
+function showApplyScreen(gmail, name) {
+  const old = document.getElementById('applyScreen');
+  if (old) old.remove();
+
+  const div = document.createElement('div');
+  div.id = 'applyScreen';
+  div.style.cssText = 'position:fixed;inset:0;background:#0d1421;z-index:1001;display:flex;align-items:center;justify-content:center;font-family:Noto Sans TC,sans-serif;';
+  div.innerHTML = `
+    <div style="background:#111927;border:1px solid #1e2d45;border-radius:16px;padding:36px;width:420px;box-shadow:0 20px 60px rgba(0,0,0,.6);">
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:32px;margin-bottom:8px;">📋</div>
+        <div style="font-size:17px;font-weight:700;color:#e8edf5;">申請加入 CRM 系統</div>
+        <div style="font-size:12px;color:#8899aa;margin-top:4px;">您的 Gmail 尚未獲得授權，請填寫以下資訊送出申請</div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;color:#8899aa;display:block;margin-bottom:4px;">Gmail 帳號</label>
+        <input type="text" value="${gmail}" readonly
+          style="width:100%;background:#162035;border:1px solid #1e2d45;border-radius:8px;color:#8899aa;padding:9px 12px;font-size:12px;font-family:inherit;box-sizing:border-box;cursor:not-allowed;">
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;color:#8899aa;display:block;margin-bottom:4px;">姓名 *</label>
+        <input id="applyName" type="text" value="${name||''}"
+          style="width:100%;background:#162035;border:1px solid #1e2d45;border-radius:8px;color:#e8edf5;padding:9px 12px;font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;"
+          placeholder="請輸入您的姓名">
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:11px;color:#8899aa;display:block;margin-bottom:4px;">申請原因（選填）</label>
+        <input id="applyReason" type="text"
+          style="width:100%;background:#162035;border:1px solid #1e2d45;border-radius:8px;color:#e8edf5;padding:9px 12px;font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;"
+          placeholder="例：新進業務顧問、合作廠商…">
+      </div>
+      <div id="applyMsg" style="color:#fbbf24;font-size:12px;text-align:center;margin-bottom:12px;display:none;"></div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="document.getElementById('applyScreen').remove();showLoginScreen();"
+          style="flex:1;background:transparent;border:1px solid #1e2d45;border-radius:8px;color:#8899aa;padding:10px;font-size:12px;font-family:inherit;cursor:pointer;">
+          返回登入
+        </button>
+        <button onclick="submitApply('${gmail}')"
+          style="flex:2;background:#1A7A6E;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;">
+          📨 送出申請
+        </button>
+      </div>
+      <div style="font-size:11px;color:#4A5568;text-align:center;margin-top:16px;">
+        申請後請等待管理者審核，核准後即可用 Gmail 登入
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+  setTimeout(()=>{ document.getElementById('applyName')?.focus(); }, 100);
+}
+
+async function submitApply(gmail) {
+  const name   = document.getElementById('applyName')?.value.trim();
+  const reason = document.getElementById('applyReason')?.value.trim();
+  const msgEl  = document.getElementById('applyMsg');
+  if (!name) { if(msgEl){msgEl.textContent='請填入姓名';msgEl.style.display='block';} return; }
+
+  if(msgEl){msgEl.textContent='送出中…';msgEl.style.display='block';}
+
+  try {
+    const res = await fetch(API_URL + '?' + new URLSearchParams({
+      action:'applyAccount', gmail, name, reason:reason||''
+    }));
+    const data = await res.json();
+    if (data.ok) {
+      if(msgEl){msgEl.style.color='#4ade80';msgEl.textContent='✅ 申請已送出！請等待管理者審核。';}
+      setTimeout(()=>{
+        document.getElementById('applyScreen')?.remove();
+        showLoginScreen();
+      }, 2500);
+    } else {
+      if(msgEl){msgEl.style.color='#f87171';msgEl.textContent=data.error||'送出失敗，請重試';}
+    }
+  } catch(e) {
+    if(msgEl){msgEl.style.color='#f87171';msgEl.textContent='連線失敗，請重試';}
+  }
+}
+
+// ── 待審核清單（帳號管理 Modal 內）─────────────
+let pendingUsers = [];
+
+async function renderPendingList() {
+  try {
+    const res = await apiGet({ action:'getPendingUsers' });
+    pendingUsers = (res.ok && res.pending) ? res.pending : [];
+  } catch(e) {
+    pendingUsers = [];
+    return; // 失敗靜默，不影響帳號管理視窗
+  }
+
+  const existing = document.getElementById('pendingSection');
+  if (existing) existing.remove();
+
+  if (!pendingUsers.length) return;
+
+  const modalBody = document.querySelector('#userMgrOverlay .modal-body');
+  if (!modalBody) return;
+
+  const sec = document.createElement('div');
+  sec.id = 'pendingSection';
+  sec.style.cssText = 'margin-bottom:16px;';
+  sec.innerHTML = `
+    <div style="font-size:10px;font-weight:700;color:#f59e0b;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(245,158,11,.3);">
+      ⏳ 待審核申請（${pendingUsers.length} 筆）
+    </div>
+    ${pendingUsers.map(p=>`
+      <div style="background:#162035;border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:700;color:#fbbf24;">${p.gmail}</div>
+          <div style="font-size:11px;color:#8899aa;">${p.name} ${p.reason?'・'+p.reason:''}</div>
+          <div style="font-size:10px;color:#4A5568;">${p.appliedAt||''}</div>
+        </div>
+        <button onclick="approveUser('${p.gmail}','${p.name}')"
+          style="padding:5px 12px;border-radius:6px;background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.3);color:#4ade80;cursor:pointer;font-size:11px;font-weight:700;">
+          ✅ 核准
+        </button>
+        <button onclick="rejectUser('${p.gmail}')"
+          style="padding:5px 12px;border-radius:6px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.25);color:#f87171;cursor:pointer;font-size:11px;">
+          ❌ 拒絕
+        </button>
+      </div>`).join('')}`;
+  modalBody.insertBefore(sec, modalBody.firstChild);
+}
+
+async function approveUser(gmail, name) {
+  const role = 'sales'; // 預設核准為業務顧問
+  const res  = await apiPost({ action:'approveUser', gmail, name, role });
+  if (res.ok) {
+    toast(`✅ 已核准「${name}」(${gmail})，角色：業務顧問`, 'success');
+    const res2 = await apiGet({ action:'getUsers' });
+    if (res2.ok) { allUsers = res2.users; renderUserList(); }
+    renderPendingList();
+  } else {
+    toast('核准失敗：'+(res.error||''), 'error');
+  }
+}
+
+async function rejectUser(gmail) {
+  if (!confirm(`確定要拒絕「${gmail}」的申請嗎？`)) return;
+  const res = await apiPost({ action:'rejectUser', gmail });
+  if (res.ok) {
+    toast('已拒絕申請：'+gmail, 'info');
+    renderPendingList();
+  }
+}
+
+function updateTopbarUser() {
+  const pills = document.querySelector('.topbar-pills');
+  if (!pills) return;
+  const old = document.getElementById('userPill');
+  if (old) old.remove();
+
+  const role    = currentUser.role;
+  const isAdmin = role === 'admin';
+  const isMgr   = role === 'manager';
+  const isSales = role === 'sales';
+
+  // 角色標示設定
+  const roleConfig = {
+    admin:   { icon:'👑', color:'var(--gold)',       label:'管理者' },
+    manager: { icon:'⭐', color:'var(--purple-light)', label:'業務長' },
+    sales:   { icon:'👤', color:'var(--teal-light)',  label:'業務顧問' }
+  };
+  const rc = roleConfig[role] || roleConfig.sales;
+
+  const pill = document.createElement('div');
+  pill.id = 'userPill';
+  pill.className = 'pill';
+  pill.style.borderColor = rc.color;
+  pill.innerHTML = `<span>${rc.icon}</span><b style="color:${rc.color}">${currentUser.name}</b><span style="font-size:9px;color:var(--text-dim);margin-left:2px;">${rc.label}</span>`;
+  pills.insertBefore(pill, pills.firstChild);
+
+  // 依角色顯示/隱藏功能按鈕
+  const btnCF     = document.getElementById('btnCF');
+  const btnReset  = document.getElementById('btnReset');
+  const btnExport = document.getElementById('btnExport');
+
+  // 自訂欄位：僅 admin
+  if (btnCF) btnCF.style.display = isAdmin ? '' : 'none';
+  // 匯入CSV：僅 admin
+  const btnImport = document.getElementById('btnImport');
+  if (btnImport) btnImport.style.display = isAdmin ? '' : 'none';
+
+  // 匯出CSV：admin + manager
+  if (btnExport) btnExport.style.display = (isAdmin || isMgr) ? '' : 'none';
+
+  // 重置資料：僅 admin
+  if (btnReset) btnReset.style.display = isAdmin ? '' : 'none';
+
+  // 帳號管理按鈕：僅 admin（按鈕已在 HTML，直接控制顯示）
+  const btnUserMgmt = document.getElementById('userMgmtBtn');
+  if (btnUserMgmt) btnUserMgmt.style.display = isAdmin ? '' : 'none';
+}
+
+// ══════════════════════════════════════════════════════
+// 載入資料
+// ══════════════════════════════════════════════════════
+async function loadData() {
+  showLoading('連線 Google Sheet…');
+  try {
+    const [recRes, cfRes] = await Promise.all([
+      apiGet({ action:'getRecords' }),
+      apiGet({ action:'getCustomFields' })
+    ]);
+
+    if (cfRes.ok && cfRes.fields) customFields = cfRes.fields;
+
+    if (recRes.ok) {
+      if (recRes.records && recRes.records.length > 0) {
+        records = recRes.records.map(r => ({
+          ...r,
+          group:  r.group  || 'A',
+          grade:  r.grade  || 'A',
+          status: r.status || '未接觸',
+          region: r.region || ''
+        }));
+        toast('✅ 已從 Google Sheet 載入 ' + records.length + ' 筆資料', 'success');
+      } else {
+        // Sheet 為空：顯示本地預設資料，不自動寫入（避免誤覆蓋）
+        records = JSON.parse(JSON.stringify(INITIAL_DATA));
+        if (currentUser.role === 'admin') {
+          toast('Google Sheet 尚無資料，顯示本地預設19筆。請點「🔄 重置資料」同步到 Sheet。', 'info');
+        } else {
+          toast('目前尚無指派給您的客戶資料', 'info');
+        }
+      }
+    } else {
+      if (recRes.error && recRes.error.includes('token')) {
+        // Token 過期，重新登入
+        toast('登入已過期，請重新登入', 'error');
+        setTimeout(() => doLogout(false), 1500);
+        return;
+      }
+      throw new Error(recRes.error || '載入失敗');
+    }
+  } catch(e) {
+    console.warn('loadData:', e.message);
+    // 若是第一次載入且 Sheet 還沒有資料，使用預設19筆
+    if (!records.length) records = JSON.parse(JSON.stringify(INITIAL_DATA));
+  }
+  hideLoading();
+  // 確保主畫面可見（保險機制）
+  document.body.classList.remove('not-logged-in');
+  render();
+}
+
+// ══════════════════════════════════════════════════════
+// 儲存單筆
+// ══════════════════════════════════════════════════════
+async function saveData(record) {
+  if (!record) return;
+  try {
+    const res = await apiPost({ action:'saveRecord', record });
+    if (!res.ok) throw new Error(res.error);
+  } catch(e) {
+    console.warn('同步失敗：', e.message);
+    toast('⚠ 同步失敗，資料可能未儲存。請重試。', 'error');
+  }
+}
+
+async function saveCF() {
+  try { await apiPost({ action:'saveCustomFields', fields:customFields }); } catch(e) {}
+}
+
+async function resetToDefault() {
+  if (currentUser?.role !== 'admin') { toast('重置資料功能僅限管理者使用', 'error'); return; }
+  if (!confirm('確定要重置為初始調查資料（19筆）？\n\n資料將寫入「國際柑仔店 CRM 資料庫」Google Sheet 的「CRM資料」分頁。\n⚠ 所有業務顧問更新的資料將清除，無法復原。')) return;
+  showLoading('重置中…');
+  customFields = [];
+  records = JSON.parse(JSON.stringify(INITIAL_DATA)).map(r => ({ ...r, assignedTo:'ALL', createdBy:'admin' }));
+  try {
+    await apiPost({ action:'saveRecords', records });
+    toast('已重置並同步 ✓', 'success');
+  } catch(e) {
+    toast('重置完成，但同步失敗', 'error');
+  }
+  hideLoading();
+  render(); // 直接顯示本地的19筆，不需要重新載入
+}
+
+// ══════════════════════════════════════════════════════
+// Loading
+// ══════════════════════════════════════════════════════
+function showLoading(msg) {
+  let el = document.getElementById('loadingOverlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'loadingOverlay';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(10,16,28,.85);z-index:998;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;backdrop-filter:blur(4px);';
+    el.innerHTML = '<div style="width:40px;height:40px;border:3px solid #1A7A6E;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;"></div><div id="loadingMsg" style="color:#e8edf5;font-size:14px;font-family:Noto Sans TC,sans-serif;">' + (msg||'載入中…') + '</div>';
+    if (!document.querySelector('#spinStyle')) {
+      const s=document.createElement('style'); s.id='spinStyle';
+      s.textContent='@keyframes spin{to{transform:rotate(360deg)}}';
+      document.head.appendChild(s);
+    }
+    document.body.appendChild(el);
+  } else {
+    const msgEl = el.querySelector('#loadingMsg');
+    if (msgEl) msgEl.textContent = msg||'載入中…';
+    el.style.display='flex';
+  }
+}
+function hideLoading() {
+  const el = document.getElementById('loadingOverlay');
+  if (el) el.style.display='none';
+}
+
+// ══════════════════════════════════════════════════════
+// 帳號管理 Modal（僅 admin）
+// ══════════════════════════════════════════════════════
+let allUsers = [];
+
+async function openUserManager() {
+  if (currentUser?.role !== 'admin') return;
+
+  // 先建立/顯示 modal（不等待 API）
+  let um = document.getElementById('userMgrOverlay');
+  if (!um) {
+    um = document.createElement('div');
+    um.id = 'userMgrOverlay';
+    um.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:400;align-items:center;justify-content:center;backdrop-filter:blur(4px);font-family:Noto Sans TC,sans-serif;';
+    um.innerHTML = `
+      <div style="background:#111927;border:1px solid #1e2d45;border-radius:14px;width:720px;max-width:95vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.6);">
+        <div style="padding:16px 18px;border-bottom:1px solid #1e2d45;display:flex;align-items:center;justify-content:space-between;background:#6C3483;">
+          <div style="font-size:14px;font-weight:700;color:#fff;">👥 帳號管理</div>
+          <button onclick="closeUserManager()" style="width:26px;height:26px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-size:14px;">✕</button>
+        </div>
+        <div id="umBody" style="padding:16px 18px;overflow-y:auto;flex:1;">
+          <div style="text-align:center;padding:20px;color:#8899aa;font-size:13px;">載入中…</div>
+        </div>
+      </div>`;
+    document.body.appendChild(um);
+  } else {
+    um.style.display = 'flex';
+  }
+
+  // 載入帳號資料
+  try {
+    const res = await apiGet({ action:'getUsers' });
+    if (res.ok && res.users) {
+      allUsers = res.users;
+    } else {
+      allUsers = [];
+    }
+  } catch(e) {
+    allUsers = [];
+  }
+
+  // 載入待審核
+  try {
+    const res2 = await apiGet({ action:'getPendingUsers' });
+    pendingUsers = (res2.ok && res2.pending) ? res2.pending : [];
+  } catch(e) {
+    pendingUsers = [];
+  }
+
+  renderUserManagerBody();
+}
+
+function renderUserManagerBody() {
+  const body = document.getElementById('umBody');
+  if (!body) return;
+
+  let html = '';
+
+  // 待審核區塊
+  if (pendingUsers.length > 0) {
+    html += `<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:12px;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:10px;letter-spacing:.06em;">⏳ 待審核申請（${pendingUsers.length} 筆）</div>`;
+    pendingUsers.forEach(p => {
+      html += `<div style="display:flex;align-items:center;gap:10px;background:#162035;border-radius:7px;padding:9px 12px;margin-bottom:6px;">
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:700;color:#fbbf24;">${p.gmail}</div>
+          <div style="font-size:11px;color:#8899aa;">${p.name||''}${p.reason?' ・ '+p.reason:''}</div>
+          <div style="font-size:10px;color:#4A5568;">${p.appliedAt||''}</div>
+        </div>
+        <button onclick="approveUser('${p.gmail}','${p.name||''}')" style="padding:5px 12px;border-radius:6px;background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.3);color:#4ade80;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;">✅ 核准</button>
+        <button onclick="rejectUser('${p.gmail}')" style="padding:5px 12px;border-radius:6px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.25);color:#f87171;cursor:pointer;font-size:11px;white-space:nowrap;">❌ 拒絕</button>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // 說明
+  html += `<div style="font-size:11px;color:#8899aa;background:#162035;border:1px solid #1e2d45;border-radius:8px;padding:10px 12px;margin-bottom:14px;line-height:1.7;">
+    📋 <b style="color:#e8edf5">指派客戶ID：</b>用逗號分隔（如 A001,B003）。填 <b style="color:#C8A93A">ALL</b> 可看全部。空白=僅自己新增的客戶。
+  </div>`;
+
+  // 帳號列表
+  html += `<div id="userList" style="margin-bottom:16px;">`;
+  if (!allUsers.length) {
+    html += '<div style="color:#8899aa;font-size:12px;text-align:center;padding:10px;">尚無帳號</div>';
+  } else {
+    allUsers.forEach((u, i) => {
+      const isAdmin = u.role==='admin';
+      const isMgr   = u.role==='manager';
+      const isSelf  = u.account === currentUser?.account;
+      const bg = i%2===0 ? '#162035' : '#111927';
+      const roleColor = isAdmin?'#C8A93A':isMgr?'#c084fc':'#34d399';
+      const uid = 'user_'+i;
+      html += `<div style="background:${bg};border:1px solid #1e2d45;border-radius:8px;padding:12px;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:700;color:${roleColor};word-break:break-all;margin-bottom:8px;">${u.account}</div>
+        <div style="display:grid;grid-template-columns:100px 140px 1fr;gap:8px;margin-bottom:8px;">
+          <div>
+            <div style="font-size:10px;color:#8899aa;margin-bottom:3px;">角色</div>
+            <select id="${uid}_role" style="width:100%;background:#0d1421;border:1px solid #1e2d45;border-radius:6px;color:#e8edf5;padding:5px;font-size:11px;font-family:inherit;" ${isSelf?'disabled':''}>
+              <option value="sales" ${u.role==='sales'?'selected':''}>👤 業務顧問</option>
+              <option value="manager" ${u.role==='manager'?'selected':''}>⭐ 業務長</option>
+              <option value="admin" ${u.role==='admin'?'selected':''}>👑 管理者</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#8899aa;margin-bottom:3px;">姓名</div>
+            <input id="${uid}_name" type="text" value="${u.name}" style="width:100%;background:#0d1421;border:1px solid #1e2d45;border-radius:6px;color:#e8edf5;padding:5px;font-size:11px;font-family:inherit;box-sizing:border-box;">
+          </div>
+          <div>
+            <div style="font-size:10px;color:#8899aa;margin-bottom:3px;">指派客戶ID（ALL=全部，空白=僅自己）</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="${uid}_assigned" type="text" value="${u.assignedIds||''}"
+                style="flex:1;background:#0d1421;border:1px solid #1e2d45;border-radius:6px;color:#e8edf5;padding:5px;font-size:11px;font-family:inherit;box-sizing:border-box;"
+                placeholder="ALL 或 A001,B003 或留空">
+              <button onclick="openAssignPicker('${uid}','${u.account}')"
+                style="padding:5px 10px;border-radius:6px;background:rgba(26,122,110,.2);border:1px solid var(--teal);color:var(--teal-light);cursor:pointer;font-size:11px;white-space:nowrap;">
+                🎯 勾選指派
+              </button>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div style="font-size:10px;color:#8899aa;">重設密碼：</div>
+          <input id="${uid}_pwd" type="password" placeholder="留空=保留原密碼" style="flex:1;max-width:160px;background:#0d1421;border:1px solid #1e2d45;border-radius:6px;color:#e8edf5;padding:5px;font-size:11px;font-family:inherit;">
+          <button onclick="saveUserInline('${u.account}','${uid}')" style="padding:5px 14px;border-radius:6px;background:#1A7A6E;border:none;color:#fff;cursor:pointer;font-size:11px;font-weight:700;">💾 儲存</button>
+          ${!isSelf ? `<button onclick="removeUser('${u.account}')" style="padding:5px 10px;border-radius:6px;background:transparent;border:1px solid #C0392B;color:#f87171;cursor:pointer;font-size:11px;">🗑 刪除</button>` : ''}
+        </div>
+      </div>`;
+    });
+  }
+  html += '</div>';
+
+  // 新增表單
+  html += `<div style="border-top:1px solid #1e2d45;padding-top:14px;">
+    <div style="font-size:11px;font-weight:700;color:#6C3483;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;">➕ 新增業務顧問帳號</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+      <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">帳號（Gmail或自訂）*</label><input id="nu-account" class="finput" placeholder="例：chen@gmail.com"></div>
+      <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">密碼（Gmail登入可空白）</label><input id="nu-pwd" type="password" class="finput" placeholder="帳密登入才需填"></div>
+      <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">姓名 *</label><input id="nu-name" class="finput" placeholder="例：陳業務"></div>
+      <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">角色 *</label>
+        <select id="nu-role" class="fselect">
+          <option value="sales">👤 業務顧問</option>
+          <option value="manager">⭐ 業務長</option>
+          <option value="admin">👑 管理者</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+      <div><label style="font-size:10.5px;color:#8899aa;display:block;margin-bottom:3px;">指派客戶ID（逗號分隔，ALL=全部，空白=僅自己新增的）</label>
+        <input id="nu-assigned" class="finput" placeholder="例：A001,B003 或填 ALL 或留空"></div>
+      <button onclick="addUser()" class="btn btn-primary" style="white-space:nowrap;">＋ 新增</button>
+    </div>
+  </div>`;
+
+  body.innerHTML = html;
+}
+
+function closeUserManager() {
+  const um = document.getElementById('userMgrOverlay');
+  if (um) um.style.display = 'none';
+}
+
+function renderUserList() {
+  const el = document.getElementById('userList');
+  if (!el) return;
+  if (!allUsers.length) { el.innerHTML = '<div style="color:#8899aa;font-size:12px;text-align:center;padding:10px;">尚無業務顧問帳號</div>'; return; }
+
+  el.innerHTML = allUsers.map((u,i) => {
+    const isAdmin = u.role === 'admin';
+    const bg = i%2===0 ? '#162035' : '#111927';
+    return `<div style="background:${bg};border:1px solid #1e2d45;border-radius:8px;padding:10px 12px;margin-bottom:6px;display:grid;grid-template-columns:240px 80px 1fr auto auto;gap:10px;align-items:center;">
+      <div>
+        <div style="font-size:10px;color:#8899aa;">帳號</div>
+        <div style="font-size:12px;font-weight:700;color:${isAdmin?'#C8A93A':isMgr?'#c084fc':'#34d399'}">${u.account}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:#8899aa;">角色</div>
+        <div style="font-size:11px;color:${isAdmin?'#C8A93A':isMgr?'#c084fc':'#e8edf5'}">${isAdmin?'👑 管理者':isMgr?'⭐ 業務長':'👤 業務顧問'}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:#8899aa;">姓名 ／ 指派客戶ID</div>
+        <div style="font-size:12px;color:#e8edf5;">${u.name}</div>
+        <div style="font-size:11px;color:#8899aa;margin-top:2px;">${u.assignedIds || '（僅自己建立的客戶）'}</div>
+      </div>
+      <button onclick="editUser('${u.account}')" style="padding:4px 10px;border-radius:6px;border:1px solid #1e2d45;background:transparent;color:#8899aa;cursor:pointer;font-size:11px;white-space:nowrap;">✏️ 編輯</button>
+      ${isAdmin ? `<button onclick="removeUser('${u.account}')" style="padding:4px 10px;border-radius:6px;border:1px solid #C0392B;background:transparent;color:#f87171;cursor:pointer;font-size:11px;">🗑</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function addUser() {
+  const account  = document.getElementById('nu-account')?.value.trim();
+  const pwd      = document.getElementById('nu-pwd')?.value.trim();
+  const name     = document.getElementById('nu-name')?.value.trim();
+  const assigned = document.getElementById('nu-assigned')?.value.trim();
+
+  if (!account || !pwd || !name) { toast('請填入帳號、密碼、姓名','error'); return; }
+
+  const role = document.getElementById('nu-role')?.value || 'sales';
+  const res = await apiPost({ action:'saveUser', user:{ account, password:pwd, role:role, name, assignedIds:assigned, active:true } });
+  if (res.ok) {
+    toast('業務顧問「'+name+'」已新增 ✓','success');
+    ['nu-account','nu-pwd','nu-name','nu-assigned'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    const res2 = await apiGet({ action:'getUsers' });
+    if (res2.ok) { allUsers = res2.users; renderUserList(); }
+  } else {
+    toast('新增失敗：'+(res.error||''),'error');
+  }
+}
+
+async function editUser(account) {
+  const u = allUsers.find(x=>x.account===account);
+  if (!u) return;
+  const newAssigned = prompt(`編輯「${u.name}」的指派客戶ID\n（逗號分隔，ALL=全部，空白=僅自己的）：`, u.assignedIds||'');
+  if (newAssigned === null) return;
+  const newPwd = prompt(`重設密碼（留空=保留原密碼）：`, '');
+  // 角色修改（不能修改自己的角色）
+  let finalRole = u.role;
+  if (u.account !== currentUser?.account) {
+    const roleNow = u.role==='admin'?'管理者':u.role==='manager'?'業務長':'業務顧問';
+    const newRoleRaw = prompt(
+      `修改「${u.name}」的角色\n目前：${roleNow}\n\n請輸入新角色：\n  admin   = 👑 管理者\n  manager = ⭐ 業務長\n  sales   = 👤 業務顧問\n（留空保留原角色）`,
+      u.role
+    );
+    if (newRoleRaw !== null && newRoleRaw.trim()) {
+      if (['admin','manager','sales'].includes(newRoleRaw.trim())) {
+        finalRole = newRoleRaw.trim();
+      } else {
+        toast('角色輸入不正確，保留原角色','info');
+      }
+    }
+  } else {
+    toast('不能修改自己的角色','info');
+  }
+  const res = await apiPost({ action:'saveUser', user:{ account:u.account, password:newPwd||'', role:finalRole, name:u.name, assignedIds:newAssigned, active:true } });
+  if (res.ok) {
+    toast('已更新 ✓','success');
+    const res2 = await apiGet({ action:'getUsers' });
+    if (res2.ok) { allUsers = res2.users; renderUserList(); }
+  } else {
+    toast('更新失敗：'+(res.error||''),'error');
+  }
+}
+
+// ══════════════════════════════════════════════
+// 指派客戶勾選器
+// ══════════════════════════════════════════════
+let _assignUid = '';
+let _assignAccount = '';
+let _assignFiltered = [];
+
+function openAssignPicker(uid, account) {
+  _assignUid = uid;
+  _assignAccount = account;
+
+  // 讀取目前已指派的 ID
+  const currentVal = document.getElementById(uid + '_assigned')?.value || '';
+  const currentIds = currentVal.split(',').map(s => s.trim()).filter(Boolean);
+
+  // 建立客戶列表
+  _assignFiltered = [...records].filter(r => r.status !== '已刪除');
+  renderAssignList(currentIds);
+
+  document.getElementById('assignSearch').value = '';
+  document.getElementById('assignOverlay').classList.add('open');
+}
+
+function closeAssignPicker() {
+  document.getElementById('assignOverlay').classList.remove('open');
+}
+
+function renderAssignList(selectedIds) {
+  const list = document.getElementById('assignList');
+  if (!list) return;
+
+  const sel = selectedIds || getSelectedAssignIds();
+
+  if (!_assignFiltered.length) {
+    list.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:20px;font-size:13px;">尚無客戶資料</div>';
+    return;
+  }
+
+  // 依客群分組
+  const groups = { A:'🟢 客群A：中小型通路商', B:'🔵 客群B：獨立店鋪/攤商', C:'🟣 客群C：社群電商團購主' };
+  let html = '';
+  ['A','B','C'].forEach(g => {
+    const gRecords = _assignFiltered.filter(r => r.group === g);
+    if (!gRecords.length) return;
+    html += `<div style="font-size:10px;font-weight:700;color:var(--text-dim);margin:10px 0 6px;letter-spacing:.06em;">${groups[g]}</div>`;
+    gRecords.forEach(r => {
+      const checked = sel.includes(r.id) || sel.includes('ALL') ? 'checked' : '';
+      const region  = (r.region||'').match(/^(北|中|南)/)?.[0]||'';
+      html += `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;cursor:pointer;margin-bottom:4px;background:var(--bg3);border:1px solid var(--border);"
+        onmouseover="this.style.borderColor='var(--teal)'" onmouseout="this.style.borderColor='var(--border)'">
+        <input type="checkbox" data-id="${r.id}" ${checked}
+          style="width:15px;height:15px;cursor:pointer;accent-color:var(--teal);"
+          onchange="updateAssignCount()">
+        <span style="font-size:11px;font-weight:700;color:var(--text-dim);min-width:70px;">${r.id}</span>
+        <span style="font-size:12px;flex:1;color:var(--text);">${r.name}</span>
+        <span style="font-size:10px;color:var(--text-dim);">${region}部</span>
+        <span style="font-size:10px;color:var(--text-dim);">${r.status||'未接觸'}</span>
+      </label>`;
+    });
+  });
+  list.innerHTML = html;
+  updateAssignCount();
+}
+
+function filterAssignList() {
+  const q = document.getElementById('assignSearch')?.value.toLowerCase() || '';
+  const sel = getSelectedAssignIds();
+  _assignFiltered = records.filter(r =>
+    r.status !== '已刪除' &&
+    (!q || (r.id+r.name+r.region+r.biztype).toLowerCase().includes(q))
+  );
+  renderAssignList(sel);
+}
+
+function getSelectedAssignIds() {
+  const checkboxes = document.querySelectorAll('#assignList input[type="checkbox"]:checked');
+  return Array.from(checkboxes).map(cb => cb.dataset.id).filter(Boolean);
+}
+
+function updateAssignCount() {
+  const count = getSelectedAssignIds().length;
+  const el = document.getElementById('assignCount');
+  if (el) el.textContent = `已選 ${count} 筆客戶`;
+}
+
+function selectAllAssign(selectAll) {
+  document.querySelectorAll('#assignList input[type="checkbox"]').forEach(cb => {
+    cb.checked = selectAll;
+  });
+  updateAssignCount();
+}
+
+function confirmAssign() {
+  const ids = getSelectedAssignIds();
+  const input = document.getElementById(_assignUid + '_assigned');
+  if (input) {
+    input.value = ids.length > 0 ? ids.join(',') : '';
+  }
+  toast(`已指派 ${ids.length} 筆客戶給業務顧問`, 'success');
+  closeAssignPicker();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const overlay = document.getElementById('assignOverlay');
+  if (overlay) overlay.addEventListener('click', function(e){ if(e.target===this) closeAssignPicker(); });
+});
+
+async function saveUserInline(account, uid) {
+  const u = allUsers.find(x=>x.account===account);
+  if (!u) return;
+  const role     = document.getElementById(uid+'_role')?.value || u.role;
+  const name     = document.getElementById(uid+'_name')?.value.trim() || u.name;
+  const assigned = document.getElementById(uid+'_assigned')?.value.trim() || u.assignedIds||'';
+  const pwd      = document.getElementById(uid+'_pwd')?.value || '';
+  const res = await apiPost({ action:'saveUser', user:{ account, password:pwd, role, name, assignedIds:assigned, active:true } });
+  if (res.ok) {
+    toast('✅ 已儲存：'+name, 'success');
+    const res2 = await apiGet({ action:'getUsers' });
+    if (res2.ok && res2.users) { allUsers = res2.users; renderUserManagerBody(); }
+  } else {
+    toast('儲存失敗：'+(res.error||''), 'error');
+  }
+}
+
+async function removeUser(account) {
+  if (!confirm(`確定要刪除帳號「${account}」嗎？`)) return;
+  const res = await apiPost({ action:'deleteUser', account });
+  if (res.ok) {
+    toast('已刪除帳號：'+account,'info');
+    const res2 = await apiGet({ action:'getUsers' });
+    if (res2.ok) { allUsers = res2.users; renderUserList(); }
+  } else {
+    toast('刪除失敗：'+(res.error||''),'error');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// 新增/編輯 Modal 中加入「指派對象」欄（admin 專用）
+// ══════════════════════════════════════════════════════
+// 產生預設客戶編號：年後兩碼＋月兩碼＋日兩碼＋當日三碼流水號
+function generateClientId() {
+  const now   = new Date();
+  const yy    = String(now.getFullYear()).slice(-2);
+  const mm    = String(now.getMonth()+1).padStart(2,'0');
+  const dd    = String(now.getDate()).padStart(2,'0');
+  const prefix = yy + mm + dd;
+  // 找今天已有幾筆此前綴的客戶
+  const existing = records.filter(r => String(r.id||'').startsWith(prefix));
+  const seq = String(existing.length + 1).padStart(3,'0');
+  return prefix + seq;
+}
+
+function allFields(){
+  const adminExtra = currentUser?.role === 'admin' ? [
+    {key:'assignedTo', label:'指派業務顧問帳號（逗號分隔，ALL=全部）', type:'text', req:false, sec:'📅 跟進追蹤', half:true},
+  ] : [];
+  return [...FIXED_FIELDS, ...adminExtra, ...customFields.map(cf=>({key:cf.key,label:cf.label,type:cf.type,req:false,sec:'⚙ 自訂欄位',half:true}))];
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER（同前，不變）
+// ══════════════════════════════════════════════════════
+function getFiltered(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const fg=document.getElementById('filterGroup').value;
+  const fr=document.getElementById('filterRegion').value;
+  const fGrade=document.getElementById('filterGrade').value;
+  const fStatus=document.getElementById('filterStatus').value;
+  const fVerify=document.getElementById('filterVerify').value;
+  return records.filter(r=>{
+    if(currentTab!=='all'&&r.group!==currentTab)return false;
+    if(fg&&r.group!==fg)return false;
+    if(fr&&!(r.region||'').includes(fr))return false;
+    if(fGrade&&r.grade!==fGrade)return false;
+    if(fStatus&&r.status!==fStatus)return false;
+    if(fVerify&&contactScore(r)!==fVerify)return false;
+    if(q){const hay=FIXED_FIELDS.map(f=>r[f.key]||'').join(' ').toLowerCase(); if(!hay.includes(q))return false;}
+    return true;
+  }).sort((a,b)=>{
+    let av=a[sortKey]||'',bv=b[sortKey]||'';
+    return av<bv?-sortDir:av>bv?sortDir:0;
+  });
+}
+
+function render(){
+  updateStats(); updateTabCounts(); updateProgress();
+  const filtered=getFiltered();
+  const tbody=document.getElementById('tableBody');
+  const empty=document.getElementById('emptyState');
+  if(!filtered.length){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  tbody.innerHTML=filtered.map(r=>{
+    const rp=(r.region||'').match(/北|中|南/)?.[0]||'?';
+    const cs=contactScore(r);
+    const nd=r.nextdate?`<span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${isOverdue(r.nextdate)?'#f87171':'var(--text-dim)'}">${r.nextdate}</span>`:'<span style="color:var(--text-dim);font-size:10px">—</span>';
+    const contactLine=[r.mobile,r.phone].filter(v=>v&&v.trim()&&!/^（|待確認|請優先/.test(v)).join(' / ')||'—';
+    const emailLine=(r.email&&!/^（/.test(r.email))?r.email:'—';
+    // 顯示指派標記（admin 才看得到）
+    const assignBadge = currentUser?.role==='admin' && r.assignedTo && r.assignedTo!=='ALL'
+      ? `<span style="font-size:9px;color:#8899aa;margin-left:4px;">→${r.assignedTo}</span>` : '';
+    return `<tr onclick="showDetail('${r.id}')" class="${detailId===r.id?'selected':''}">
+      <td class="cell-id">${r.id}</td>
+      <td><span class="gbadge gbadge-${r.group}">${r.group}</span></td>
+      <td><div class="region-tag region-${rp}"><div class="rdot"></div>${rp}部</div></td>
+      <td><div class="cell-name">${r.name}${assignBadge}</div><div class="cell-sub">${r.biztype||''}</div></td>
+      <td style="font-size:11px;color:var(--text-dim)">${contactLine}</td>
+      <td style="font-size:11px;color:var(--text-dim)">${emailLine}</td>
+      <td><span class="status status-${r.status||'未接觸'}">${r.status||'未接觸'}</span></td>
+      <td><div class="grade grade-${r.grade||'A'}">${r.grade||'A'}</div></td>
+      <td>${contactScoreLabel(contactScore(r))}</td>
+      <td>${nd}</td>
+      <td><div class="row-actions">
+        <button class="act-btn" onclick="event.stopPropagation();openEdit('${r.id}')" title="編輯">✏️</button>
+        ${(currentUser?.role==='admin'||currentUser?.role==='manager') ? `<button class="act-btn del" onclick="event.stopPropagation();deleteRecord('${r.id}')" title="刪除">🗑</button>` : ''}
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function isOverdue(d){return d&&new Date(d)<new Date();}
+function updateStats(){
+  // 統計數字與表格一致（用 getFiltered 的結果）
+  const filtered = getFiltered();
+  document.getElementById('st-total').textContent=records.length;
+  document.getElementById('st-a').textContent=records.filter(r=>r.grade==='A'&&r.status!=='已刪除').length;
+  document.getElementById('st-b').textContent=records.filter(r=>r.grade==='B'&&r.status!=='已刪除').length;
+  document.getElementById('st-verified').textContent=records.filter(r=>contactScore(r)==='complete'&&r.status!=='已刪除').length;
+}
+function updateTabCounts(){
+  document.getElementById('tab-all-count').textContent=records.length;
+  ['A','B','C'].forEach(g=>{ const el=document.getElementById('tab-'+g+'-count'); if(el) el.textContent=records.filter(r=>r.group===g).length; });
+}
+
+['searchInput','filterGroup','filterRegion','filterGrade','filterStatus','filterVerify'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el){ el.addEventListener('input',render); el.addEventListener('change',render); }
+});
+function sortBy(key){ if(sortKey===key)sortDir*=-1;else{sortKey=key;sortDir=1;} render(); }
+function switchTab(tab,el){ currentTab=tab; document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); render(); }
+
+// ══════════════════════════════════════════════════════
+// DETAIL PANEL
+// ══════════════════════════════════════════════════════
+function showDetail(id){
+  const r=records.find(x=>x.id===id); if(!r)return;
+  detailId=id;
+  document.getElementById('d-id').textContent=r.id;
+  document.getElementById('d-name').textContent=r.name;
+  document.getElementById('d-type').textContent=r.biztype||'';
+
+  const sections={};
+  allFields().forEach(f=>{ if(!sections[f.sec])sections[f.sec]=[]; sections[f.sec].push(f); });
+
+  let html='';
+  const cs=contactScore(r);
+  const csBar=cs==='complete'
+    ?'<div style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);border-radius:7px;padding:8px 10px;font-size:11.5px;color:#4ade80;margin-bottom:14px;">✅ 聯繫資料已完整</div>'
+    :cs==='partial'
+    ?'<div style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.25);border-radius:7px;padding:8px 10px;font-size:11.5px;color:#fbbf24;margin-bottom:14px;">⚠ 聯繫資料部分填寫 — 點「編輯資料」補充</div>'
+    :'<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);border-radius:7px;padding:8px 10px;font-size:11.5px;color:#f87171;margin-bottom:14px;">○ 聯繫資料尚未填寫</div>';
+  html+=csBar;
+
+  Object.entries(sections).forEach(([sec,fields])=>{
+    html+=`<div class="det-sec"><div class="det-sec-title">${sec}</div><div class="det-grid">`;
+    fields.forEach(f=>{
+      if(['id','name','biztype'].includes(f.key))return;
+      const val=r[f.key]||'—';
+      const wide=f.half===false?' det-field-wide':'';
+      const isContact=['mobile','phone','email','line','fb'].includes(f.key);
+      const isMemo=f.key==='memo';
+      let displayVal=val;
+      if(f.key==='group') displayVal=`<span class="gbadge gbadge-${r.group}">${r.group} — ${r.group==='A'?'中小型通路商':r.group==='B'?'獨立店鋪/攤商':'社群電商團購主'}</span>`;
+      if(f.key==='grade') displayVal=`<span class="grade grade-${r.grade||'A'}">${r.grade||'A'}</span>`;
+      if(f.key==='status') displayVal=`<span class="status status-${r.status||'未接觸'}">${r.status||'未接觸'}</span>`;
+      const cls=isMemo?' memo':isContact?' contact':'';
+      html+=`<div class="det-field${wide}"><div class="det-label">${f.label}</div><div class="det-val${cls}${wide}">${displayVal.replace(/\n/g,'<br>')}</div></div>`;
+    });
+    html+='</div></div>';
+  });
+  // 加入系統記錄（唯讀，只在詳細面板顯示）
+  const r_sys = records.find(x=>x.id===id)||{};
+  if (r_sys.createdBy || r_sys.updatedBy || r_sys.lastUpdated) {
+    html += `<div class="det-sec">
+      <div class="det-sec-title">📋 系統記錄</div>
+      <div class="det-grid">
+        <div class="det-field"><div class="det-label">📌 建立者帳號</div><div class="det-val" style="color:var(--text-dim);border-style:dashed;">${r_sys.createdBy||'—'}</div></div>
+        <div class="det-field"><div class="det-label">✏️ 最後儲存者</div><div class="det-val" style="color:var(--text-dim);border-style:dashed;">${r_sys.updatedBy||'—'}</div></div>
+        <div class="det-field-wide"><div class="det-label">🕐 最後儲存時間</div><div class="det-val" style="color:var(--text-dim);border-style:dashed;">${r_sys.lastUpdated||'—'}</div></div>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('detailBody').innerHTML=html;
+  document.getElementById('detailOverlay').classList.add('open');
+  render();
+}
+
+function closeDetail(){detailId=null;document.getElementById('detailOverlay').classList.remove('open');render();}
+document.getElementById('detailOverlay').addEventListener('click',function(e){if(e.target===this)closeDetail();});
+function editFromDetail(){if(detailId){closeDetail();openEdit(detailId);}}
+
+// ══════════════════════════════════════════════════════
+// ADD / EDIT MODAL
+// ══════════════════════════════════════════════════════
+function buildForm(r){
+  // readonly 欄位不出現在編輯表單
+  const fields=allFields();
+  const sections={};
+  fields.forEach(f=>{ if(!sections[f.sec])sections[f.sec]=[]; sections[f.sec].push(f); });
+  let html='';
+  Object.entries(sections).forEach(([sec,flds])=>{
+    html+=`<div class="fsec">${sec}</div><div class="fgrid">`;
+    flds.forEach(f=>{ if(f.type==='readonly'||f.sec==='📋 系統記錄') return; // 系統記錄不放表單
+      const val=r?(r[f.key]||''):(f.key==='grade'?'A':f.key==='status'?'未接觸':f.key==='group'?'A':f.key==='id'?generateClientId():f.key==='taxId'?'無':'');
+      const wide=f.half===false?' wide':'';
+      const req=f.req?'<span>*</span>':'';
+      html+=`<div class="ff${wide}"><label class="flabel">${f.label} ${req}</label>`;
+      if(f.type==='select'){
+        html+=`<select class="fselect" id="ff-${f.key}">`;
+        (f.opts||[]).forEach(o=>{ html+=`<option value="${o.v}"${val===o.v?' selected':''}>${o.l}</option>`; });
+        html+='</select>';
+      } else if(f.type==='textarea'){
+        html+=`<textarea class="ftextarea" id="ff-${f.key}">${val}</textarea>`;
+      } else {
+        if (f.key === 'id') {
+          html+=`<input type="text" class="finput" id="ff-${f.key}" value="${val.replace(/"/g,'&quot;')}" readonly style="background:rgba(255,255,255,.03);color:var(--text-dim);cursor:not-allowed;border-style:dashed;" title="客戶編號儲存後不可修改">`;
+        } else {
+          html+=`<input type="${f.type==='email'?'email':f.type==='date'?'date':'text'}" class="finput" id="ff-${f.key}" value="${val.replace(/"/g,'&quot;')}" placeholder="${f.label}">`;
+        }
+      }
+      html+='</div>';
+    });
+    html+='</div>';
+  });
+  return html;
+}
+
+function openAdd(){editingId=null;document.getElementById('modalTitle').textContent='＋ 新增客戶';document.getElementById('modalBody').innerHTML=buildForm(null);document.getElementById('modalOverlay').classList.add('open');}
+function openEdit(id){const r=records.find(x=>x.id===id);if(!r)return;editingId=id;document.getElementById('modalTitle').textContent='✏️ 編輯：'+r.name;document.getElementById('modalBody').innerHTML=buildForm(r);document.getElementById('modalOverlay').classList.add('open');}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open');}
+document.getElementById('modalOverlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+async function saveRecord(){
+  const newRec={};
+  allFields().forEach(f=>{ const el=document.getElementById('ff-'+f.key); if(el)newRec[f.key]=el.value.trim(); });
+  if(!newRec.name){toast('請填入店家名稱','error');return;}
+  // 確保必要欄位有預設值
+  if(!newRec.group) newRec.group = 'A';
+  if(!newRec.grade) newRec.grade = 'A';
+  if(!newRec.status) newRec.status = '未接觸';
+  // 新增時 assignedTo 空白：admin/manager 自動設 ALL，sales 設自己
+  if(!editingId && !newRec.assignedTo) {
+    const role = currentUser?.role;
+    newRec.assignedTo = (role==='admin'||role==='manager') ? 'ALL' : (currentUser?.account||'');
+  }
+  // createdBy 自動填入
+  if(!editingId && !newRec.createdBy) {
+    newRec.createdBy = currentUser?.account||'';
+  }
+  // 客戶編號：新增時若已存在自動遞增
+  if(!editingId) {
+    let baseId = newRec.id || generateClientId();
+    // 確保編號不重複
+    while(records.find(r=>r.id===baseId)) {
+      // 取出流水號部分遞增
+      const prefix = baseId.slice(0,6);
+      const seq    = parseInt(baseId.slice(6))||0;
+      baseId = prefix + String(seq+1).padStart(3,'0');
+    }
+    if(baseId !== newRec.id) {
+      toast('⚠ 編號 '+newRec.id+' 已存在，自動調整為 '+baseId,'info');
+    }
+    newRec.id = baseId;
+    // 更新表單顯示
+    const idEl = document.getElementById('ff-id');
+    if(idEl) idEl.value = baseId;
+  }
+  if(!newRec.id){toast('無法產生客戶編號，請重試','error');return;}
+
+  // 系統自動欄位
+  const now = new Date().toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}).replace(/\//g,'-');
+  newRec.updatedBy   = currentUser?.account||'';
+  newRec.lastUpdated = now;
+  if(editingId){
+    // 保留原建立者
+    const orig = records.find(r=>r.id===editingId);
+    newRec.createdBy = orig?.createdBy || newRec.createdBy || currentUser?.account||'';
+    const idx=records.findIndex(r=>r.id===editingId); if(idx>=0)records[idx]=newRec;
+    toast('同步中…','info'); await saveData(newRec);
+    toast('✅ 已更新並同步到 Google Sheet','success');
+  } else {
+    // 新增：建立者 = 當前登入帳號
+    newRec.createdBy = currentUser?.account||'';
+    if(records.find(r=>r.id===newRec.id)){toast('此編號已存在','error');return;}
+    records.push(newRec);
+    toast('同步中…','info'); await saveData(newRec);
+    toast('✅ 已新增並同步到 Google Sheet','success');
+  }
+  closeModal(); render();
+}
+
+async function deleteRecord(id){
+  const r2 = currentUser?.role;
+  if(r2 !== 'admin' && r2 !== 'manager'){ toast('業務顧問無刪除權限，請聯繫業務長或管理者','error'); return; }
+  const r=records.find(x=>x.id===id); if(!r)return;
+  if(!confirm('確定要將「'+r.name+'」標記為刪除？\n\n資料將保留，狀態改為「已刪除」。'))return;
+  const idx=records.findIndex(x=>x.id===id);
+  if(idx>=0){
+    records[idx].status='已刪除';
+    records[idx].updatedBy=currentUser?.account||'';
+    records[idx].lastUpdated=new Date().toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}).replace(/\//g,'-');
+  }
+  if(detailId===id)closeDetail();
+  render();
+  try{
+    const res=await apiPost({action:'saveRecord',record:records[idx>=0?idx:0]});
+    if(!res.ok) toast('⚠ '+res.error,'error');
+    else toast('已標記刪除：'+r.name+'（資料保留）','info');
+  }catch(e){toast('標記完成，但同步失敗','error');}
+}
+
+
+async function doImportCSV() {
+  if (currentUser?.role !== 'admin') { toast('批量匯入僅限管理者','error'); return; }
+  const file = document.getElementById('csvFileInput')?.files[0];
+  if (!file) { toast('請先選擇 CSV 檔案','error'); return; }
+
+  const mode = document.querySelector('input[name="importMode"]:checked')?.value || 'append';
+
+  if (mode === 'overwrite') {
+    if (!confirm('⚠ 全量覆蓋模式\n\n此操作將清除所有現有客戶資料，以CSV內容取代。\n\n請確認您已匯出備份，且此操作無法復原。\n\n確定要繼續嗎？')) return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const rows = parseCSV(e.target.result);
+    if (!rows || rows.length === 0) { toast('CSV 內容為空或格式錯誤','error'); return; }
+
+    showLoading(`正在匯入 ${rows.length} 筆資料…`);
+
+    // 欄位名稱映射（中文→英文）
+    const fieldMap = {
+      '客戶編號':'id','客群類型':'group','店家名稱/暱稱':'name','所在地區':'region',
+      '業態/類型':'biztype','規模指標':'scale','聯絡窗口（姓名+職稱）':'contact',
+      '📱 手機號碼':'mobile','☎ 市話（含分機）':'phone','✉ 電子郵件 Email':'email',
+      '💬 LINE ID':'line','FB / IG 帳號':'fb','現有供應商（推估）':'supplier',
+      '月採購額估（萬）':'monthly','帳期偏好':'payment','主要進貨品類':'category',
+      '初評等級':'grade','合作狀態':'status','首次接觸日期':'firstdate',
+      '下次跟進日期（每次接觸後必填）':'nextdate','累計採購金額（NT$）':'total',
+      '資料來源管道':'source','🔑 跟進備忘錄（切入點）':'memo'
+    };
+
+    // 轉換欄位名稱
+    const normalized = rows.map(row => {
+      const rec = {};
+      Object.entries(row).forEach(([k,v]) => {
+        const engKey = fieldMap[k] || k;
+        rec[engKey] = v;
+      });
+      if (!rec.assignedTo) rec.assignedTo = 'ALL';
+      if (!rec.createdBy)  rec.createdBy  = currentUser.account;
+      return rec;
+    });
+
+    try {
+      if (mode === 'overwrite') {
+        // 全量覆蓋
+        const res = await apiPost({ action:'saveRecords', records:normalized });
+        if (res.ok) {
+          records = normalized;
+          toast(`✅ 全量匯入完成：${normalized.length} 筆`, 'success');
+        } else { throw new Error(res.error); }
+      } else {
+        // 僅新增（ID不存在才新增）
+        const existingIds = new Set(records.map(r=>r.id));
+        const toAdd = normalized.filter(r => r.id && !existingIds.has(r.id));
+        for (const rec of toAdd) {
+          await apiPost({ action:'saveRecord', record:rec });
+          records.push(rec);
+        }
+        toast(`✅ 新增完成：${toAdd.length} 筆新增，${normalized.length-toAdd.length} 筆已存在略過`, 'success');
+      }
+      closeImport();
+      render();
+    } catch(err) {
+      toast('匯入失敗：'+err.message, 'error');
+    }
+    hideLoading();
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ══════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// 查詢手冊側欄
+// ══════════════════════════════════════════════
+
+
+function toast(msg,type){
+  type=type||'info';
+  const c=document.getElementById('toastContainer');
+  const el=document.createElement('div');
+  el.className='toast '+type;
+  el.innerHTML='<span>'+(type==='success'?'✅':type==='error'?'❌':'ℹ️')+'</span><span>'+msg+'</span>';
+  c.appendChild(el);
+  setTimeout(()=>{el.style.cssText+='opacity:0;transform:translateY(10px);transition:all .3s;';setTimeout(()=>el.remove(),300);},3000);
+}
+
+// ══════════════════════════════════════════════════════
+// 登出 & 自動登出（10分鐘）
+// ══════════════════════════════════════════════════════
+let _autoLogoutTimer = null;
+const AUTO_LOGOUT_MS = 10 * 60 * 1000; // 10 分鐘
+
+function resetAutoLogout() {
+  if (_autoLogoutTimer) clearTimeout(_autoLogoutTimer);
+  _autoLogoutTimer = setTimeout(() => {
+    doLogout(true);
+  }, AUTO_LOGOUT_MS);
+}
+
+function startAutoLogout() {
+  ['click','keydown','mousemove','touchstart'].forEach(evt => {
+    document.addEventListener(evt, resetAutoLogout, { passive:true });
+  });
+  resetAutoLogout();
+}
+
+function doLogout(isAuto) {
+  if (_autoLogoutTimer) clearTimeout(_autoLogoutTimer);
+  currentUser = null;
+  records = [];
+  customFields = [];
+  document.body.classList.add('not-logged-in');
+  showLogoutScreen(isAuto);
+}
+
+function showLogoutScreen(isAuto) {
+  // 移除主畫面
+  const layout = document.querySelector('.layout');
+  const toolbar = document.querySelector('.toolbar');
+  const tabs    = document.querySelector('.tabs');
+  const prog    = document.querySelector('.progress-bar-wrap');
+  [layout, toolbar, tabs, prog].forEach(el => { if(el) el.style.display='none'; });
+
+  // 移除舊登出畫面
+  const oldOut = document.getElementById('logoutScreen');
+  if (oldOut) oldOut.remove();
+
+  const div = document.createElement('div');
+  div.id = 'logoutScreen';
+  div.style.cssText = 'position:fixed;inset:0;background:#0d1421;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:Noto Sans TC,sans-serif;';
+  div.innerHTML = `
+    <div style="text-align:center;padding:40px;">
+      <div style="width:70px;height:70px;background:#C85A1A;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:900;color:#fff;margin:0 auto 24px;">M</div>
+      <div style="font-size:22px;font-weight:700;color:#e8edf5;margin-bottom:12px;">
+        ${isAuto ? '⏰ 系統已自動登出' : '✅ 已成功登出'}
+      </div>
+      <div style="font-size:14px;color:#8899aa;margin-bottom:8px;">
+        ${isAuto ? '您已超過 10 分鐘未操作，系統已自動登出以保護資料安全。' : '感謝您使用國際柑仔店 CRM 業務顧問專屬系統。'}
+      </div>
+      <div style="font-size:13px;color:#5ecfbc;margin-bottom:32px;">
+        祝您業務順利，開發客戶成功！🎯
+      </div>
+      <button onclick="showLoginScreen();document.getElementById('logoutScreen').remove();[...document.querySelectorAll('.layout,.toolbar,.tabs,.progress-bar-wrap')].forEach(el=>el&&(el.style.display=''));"
+        style="background:var(--teal);color:#fff;border:none;border-radius:10px;padding:12px 32px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">
+        🔐 重新登入
+      </button>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+// ══════════════════════════════════════════════════════
+// INIT — 直接顯示登入畫面
+// ══════════════════════════════════════════════════════
+showLoginScreen();
+</script>
+</body>
+</html>
