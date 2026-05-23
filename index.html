@@ -113,6 +113,7 @@ tbody td{padding:9px 9px;font-size:11.5px;vertical-align:middle;}
 .status-試供貨中{background:rgba(139,92,246,.15);color:#a78bfa;}.status-試供貨中::before{background:#8b5cf6;}
 .status-正式合作{background:rgba(34,197,94,.15);color:#4ade80;}.status-正式合作::before{background:#22c55e;}
 .status-暫停{background:rgba(239,68,68,.15);color:#f87171;}.status-暫停::before{background:#ef4444;}
+.status-已刪除{background:rgba(100,116,139,.15);color:#64748b;text-decoration:line-through;}.status-已刪除::before{background:#475569;}
 /* 調查完成度標記 */
 .chk-dot{display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;}
 .chk-ok{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.2);}
@@ -501,7 +502,7 @@ const FIXED_FIELDS = [
   {key:'grade',   label:'初評等級',        type:'select',  req:false, sec:'📅 跟進追蹤', half:true,
    opts:[{v:'A',l:'A 級 — 優先開發'},{v:'B',l:'B 級 — 培育觀察'},{v:'C',l:'C 級 — 長期觀察'}]},
   {key:'status',  label:'合作狀態',        type:'select',  req:false, sec:'📅 跟進追蹤', half:true,
-   opts:[{v:'未接觸',l:'未接觸'},{v:'已接觸',l:'已接觸'},{v:'已提案',l:'已提案'},{v:'試供貨中',l:'試供貨中'},{v:'正式合作',l:'正式合作'},{v:'暫停',l:'暫停'}]},
+   opts:[{v:'未接觸',l:'未接觸'},{v:'已接觸',l:'已接觸'},{v:'已提案',l:'已提案'},{v:'試供貨中',l:'試供貨中'},{v:'正式合作',l:'正式合作'},{v:'暫停',l:'暫停'},{v:'已刪除',l:'🗑 已刪除（保留記錄）'}]},
   {key:'firstdate',label:'首次接觸日期',   type:'date',    req:false, sec:'📅 跟進追蹤', half:true},
   {key:'nextdate', label:'下次跟進日期',   type:'date',    req:false, sec:'📅 跟進追蹤', half:true},
   {key:'total',   label:'累計採購金額（NT$）', type:'text', req:false, sec:'📅 跟進追蹤', half:true},
@@ -958,7 +959,7 @@ async function loadData() {
     if (recRes.ok) {
       if (recRes.records && recRes.records.length > 0) {
         records = recRes.records;
-        toast('已載入 ' + records.length + ' 筆授權資料 ✓', 'success');
+        toast('✅ 已從 Google Sheet 載入 ' + records.length + ' 筆資料', 'success');
       } else {
         // Sheet 為空：顯示本地預設資料，不自動寫入（避免誤覆蓋）
         records = JSON.parse(JSON.stringify(INITIAL_DATA));
@@ -969,6 +970,12 @@ async function loadData() {
         }
       }
     } else {
+      if (recRes.error && recRes.error.includes('token')) {
+        // Token 過期，重新登入
+        toast('登入已過期，請重新登入', 'error');
+        setTimeout(() => doLogout(false), 1500);
+        return;
+      }
       throw new Error(recRes.error || '載入失敗');
     }
   } catch(e) {
@@ -1131,24 +1138,34 @@ function renderUserManagerBody() {
       const isMgr   = u.role==='manager';
       const isSelf  = u.account === currentUser?.account;
       const bg = i%2===0 ? '#162035' : '#111927';
-      const roleLabel = isAdmin?'👑 管理者':isMgr?'⭐ 業務長':'👤 業務員';
       const roleColor = isAdmin?'#C8A93A':isMgr?'#c084fc':'#34d399';
-      html += `<div style="background:${bg};border:1px solid #1e2d45;border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">
-        <div style="min-width:220px;word-break:break-all;">
-          <div style="font-size:10px;color:#8899aa;">帳號</div>
-          <div style="font-size:12px;font-weight:700;color:${roleColor}">${u.account}</div>
+      const uid = 'user_'+i;
+      html += `<div style="background:${bg};border:1px solid #1e2d45;border-radius:8px;padding:12px;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:700;color:${roleColor};word-break:break-all;margin-bottom:8px;">${u.account}</div>
+        <div style="display:grid;grid-template-columns:100px 140px 1fr;gap:8px;margin-bottom:8px;">
+          <div>
+            <div style="font-size:10px;color:#8899aa;margin-bottom:3px;">角色</div>
+            <select id="${uid}_role" style="width:100%;background:#0d1421;border:1px solid #1e2d45;border-radius:6px;color:#e8edf5;padding:5px;font-size:11px;font-family:inherit;" ${isSelf?'disabled':''}>
+              <option value="sales" ${u.role==='sales'?'selected':''}>👤 業務員</option>
+              <option value="manager" ${u.role==='manager'?'selected':''}>⭐ 業務長</option>
+              <option value="admin" ${u.role==='admin'?'selected':''}>👑 管理者</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#8899aa;margin-bottom:3px;">姓名</div>
+            <input id="${uid}_name" type="text" value="${u.name}" style="width:100%;background:#0d1421;border:1px solid #1e2d45;border-radius:6px;color:#e8edf5;padding:5px;font-size:11px;font-family:inherit;box-sizing:border-box;">
+          </div>
+          <div>
+            <div style="font-size:10px;color:#8899aa;margin-bottom:3px;">指派客戶ID（ALL=全部，空白=僅自己）</div>
+            <input id="${uid}_assigned" type="text" value="${u.assignedIds||''}" style="width:100%;background:#0d1421;border:1px solid #1e2d45;border-radius:6px;color:#e8edf5;padding:5px;font-size:11px;font-family:inherit;box-sizing:border-box;">
+          </div>
         </div>
-        <div style="min-width:80px;">
-          <div style="font-size:10px;color:#8899aa;">角色</div>
-          <div style="font-size:11px;color:${roleColor}">${roleLabel}</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div style="font-size:10px;color:#8899aa;">重設密碼：</div>
+          <input id="${uid}_pwd" type="password" placeholder="留空=保留原密碼" style="flex:1;max-width:160px;background:#0d1421;border:1px solid #1e2d45;border-radius:6px;color:#e8edf5;padding:5px;font-size:11px;font-family:inherit;">
+          <button onclick="saveUserInline('${u.account}','${uid}')" style="padding:5px 14px;border-radius:6px;background:#1A7A6E;border:none;color:#fff;cursor:pointer;font-size:11px;font-weight:700;">💾 儲存</button>
+          ${!isSelf ? `<button onclick="removeUser('${u.account}')" style="padding:5px 10px;border-radius:6px;background:transparent;border:1px solid #C0392B;color:#f87171;cursor:pointer;font-size:11px;">🗑 刪除</button>` : ''}
         </div>
-        <div style="flex:1;">
-          <div style="font-size:10px;color:#8899aa;">姓名 ／ 指派ID</div>
-          <div style="font-size:12px;color:#e8edf5;">${u.name}</div>
-          <div style="font-size:11px;color:#8899aa;">${u.assignedIds||'（僅自己的）'}</div>
-        </div>
-        <button onclick="editUser('${u.account}')" style="padding:4px 10px;border-radius:6px;border:1px solid #1e2d45;background:transparent;color:#8899aa;cursor:pointer;font-size:11px;white-space:nowrap;">✏️ 編輯</button>
-        ${!isSelf ? `<button onclick="removeUser('${u.account}')" style="padding:4px 10px;border-radius:6px;border:1px solid #C0392B;background:transparent;color:#f87171;cursor:pointer;font-size:11px;">🗑</button>` : '<div style="width:42px;"></div>'}
       </div>`;
     });
   }
@@ -1263,6 +1280,23 @@ async function editUser(account) {
     if (res2.ok) { allUsers = res2.users; renderUserList(); }
   } else {
     toast('更新失敗：'+(res.error||''),'error');
+  }
+}
+
+async function saveUserInline(account, uid) {
+  const u = allUsers.find(x=>x.account===account);
+  if (!u) return;
+  const role     = document.getElementById(uid+'_role')?.value || u.role;
+  const name     = document.getElementById(uid+'_name')?.value.trim() || u.name;
+  const assigned = document.getElementById(uid+'_assigned')?.value.trim() || u.assignedIds||'';
+  const pwd      = document.getElementById(uid+'_pwd')?.value || '';
+  const res = await apiPost({ action:'saveUser', user:{ account, password:pwd, role, name, assignedIds:assigned, active:true } });
+  if (res.ok) {
+    toast('✅ 已儲存：'+name, 'success');
+    const res2 = await apiGet({ action:'getUsers' });
+    if (res2.ok && res2.users) { allUsers = res2.users; renderUserManagerBody(); }
+  } else {
+    toast('儲存失敗：'+(res.error||''), 'error');
   }
 }
 
@@ -1464,9 +1498,12 @@ function buildForm(r){
       } else if(f.type==='textarea'){
         html+=`<textarea class="ftextarea" id="ff-${f.key}">${val}</textarea>`;
       } else {
-        html+=`<input type="${f.type==='email'?'email':f.type==='date'?'date':'text'}" class="finput" id="ff-${f.key}" value="${val.replace(/"/g,'&quot;')}" placeholder="${f.label}">`;
-      }
-      html+='</div>';
+        if (f.key === 'id' && r !== null) {
+          html+=`<input type="text" class="finput" id="ff-${f.key}" value="${val.replace(/"/g,'&quot;')}" readonly style="background:rgba(255,255,255,.03);color:var(--text-dim);cursor:not-allowed;border-style:dashed;" title="客戶編號儲存後不可修改">`;
+        } else {
+          html+=`<input type="${f.type==='email'?'email':f.type==='date'?'date':'text'}" class="finput" id="ff-${f.key}" value="${val.replace(/"/g,'&quot;')}" placeholder="${f.label}">`;
+        }
+        html+='</div>';
     });
     html+='</div>';
   });
@@ -1509,137 +1546,22 @@ async function deleteRecord(id){
   const r2 = currentUser?.role;
   if(r2 !== 'admin' && r2 !== 'manager'){ toast('業務員無刪除權限，請聯繫業務長或管理者','error'); return; }
   const r=records.find(x=>x.id===id); if(!r)return;
-  if(!confirm(`確定要刪除「${r.name}」嗎？`))return;
-  records=records.filter(x=>x.id!==id);
+  if(!confirm('確定要將「'+r.name+'」標記為刪除？\n\n資料將保留，狀態改為「已刪除」。'))return;
+  const idx=records.findIndex(x=>x.id===id);
+  if(idx>=0){
+    records[idx].status='已刪除';
+    records[idx].updatedBy=currentUser?.account||'';
+    records[idx].lastUpdated=new Date().toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}).replace(/\//g,'-');
+  }
   if(detailId===id)closeDetail();
   render();
   try{
-    const res=await apiPost({action:'deleteRecord',id});
+    const res=await apiPost({action:'saveRecord',record:records[idx>=0?idx:0]});
     if(!res.ok) toast('⚠ '+res.error,'error');
-    else toast('已刪除：'+r.name+' ✓','info');
-  }catch(e){toast('本機已刪除，但同步失敗','error');}
+    else toast('已標記刪除：'+r.name+'（資料保留）','info');
+  }catch(e){toast('標記完成，但同步失敗','error');}
 }
 
-// ══════════════════════════════════════════════════════
-// CUSTOM FIELDS
-// ══════════════════════════════════════════════════════
-function openCFManager(){renderCFList();document.getElementById('cfOverlay').classList.add('open');}
-function closeCFManager(){document.getElementById('cfOverlay').classList.remove('open');}
-document.getElementById('cfOverlay').addEventListener('click',function(e){if(e.target===this)closeCFManager();});
-function renderCFList(){
-  const el=document.getElementById('cfList');
-  if(!customFields.length){el.innerHTML='<div style="color:var(--text-dim);font-size:11.5px;padding:8px;text-align:center;">尚無自訂欄位</div>';return;}
-  el.innerHTML=customFields.map((cf,i)=>`<div class="cf-item"><span class="cf-name">${cf.label}</span><span class="cf-type">${{text:'文字',number:'數字',date:'日期',textarea:'長文字'}[cf.type]||cf.type}</span><button class="act-btn del" onclick="deleteCF(${i})">🗑</button></div>`).join('');
-}
-async function addCF(){
-  const name=document.getElementById('cf-newname').value.trim();
-  const type=document.getElementById('cf-newtype').value;
-  if(!name){toast('請輸入欄位名稱','error');return;}
-  const key='cf_'+Date.now();
-  if(customFields.find(cf=>cf.label===name)){toast('已有相同名稱的欄位','error');return;}
-  customFields.push({key,label:name,type});
-  await saveCF(); document.getElementById('cf-newname').value=''; renderCFList();
-  toast('自訂欄位「'+name+'」已新增 ✓','success');
-}
-async function deleteCF(i){
-  if(!confirm(`確定刪除欄位「${customFields[i].label}」？`))return;
-  customFields.splice(i,1); await saveCF(); renderCFList(); toast('已刪除欄位','info');
-}
-
-// ══════════════════════════════════════════════════════
-// EXPORT CSV
-// ══════════════════════════════════════════════════════
-function exportCSV(){
-  const fields=allFields();
-  const headers=[...fields.map(f=>f.label),'聯繫完整度'];
-  const rows=records.map(r=>{
-    const vals=fields.map(f=>`"${(r[f.key]||'').toString().replace(/\n/g,' ').replace(/"/g,'""')}"`);
-    const cs=contactScore(r);
-    vals.push(`"${cs==='complete'?'聯繫已完整':cs==='partial'?'部分填寫':'尚未填寫'}"`);
-    return vals.join(',');
-  });
-  const bom='\uFEFF';
-  const csv=bom+[headers.join(','),...rows].join('\n');
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url;
-  a.download='潛力客戶聯繫明細_'+new Date().toISOString().slice(0,10)+'.csv';
-  a.click(); URL.revokeObjectURL(url);
-  toast('CSV 已匯出 ✓','success');
-}
-
-// ══════════════════════════════════════════════════════
-// 批量匯入 CSV
-// ══════════════════════════════════════════════════════
-function openImport() {
-  if (currentUser?.role !== 'admin') { toast('批量匯入僅限管理者','error'); return; }
-  document.getElementById('importOverlay').classList.add('open');
-  document.getElementById('importPreview').style.display = 'none';
-  document.getElementById('csvFileInput').value = '';
-  document.querySelector('input[name="importMode"][value="append"]').checked = true;
-  updateModeStyle();
-}
-function closeImport() { document.getElementById('importOverlay').classList.remove('open'); }
-document.addEventListener('DOMContentLoaded', () => {
-  const ov = document.getElementById('importOverlay');
-  if (ov) ov.addEventListener('click', function(e){ if(e.target===this) closeImport(); });
-
-  const fileInput = document.getElementById('csvFileInput');
-  if (fileInput) fileInput.addEventListener('change', previewCSV);
-});
-
-function updateModeStyle() {
-  const isOverwrite = document.querySelector('input[name="importMode"]:checked')?.value === 'overwrite';
-  document.getElementById('modeAppendLabel').style.borderColor = !isOverwrite ? 'var(--teal)' : 'var(--border)';
-  document.getElementById('modeOverwriteLabel').style.borderColor = isOverwrite ? 'var(--red)' : 'var(--border)';
-}
-
-function parseCSV(text) {
-  // Remove BOM
-  text = text.replace(/^﻿/, '');
-  const lines = text.split(/\r?\n/).filter(l => l.trim());
-  if (lines.length < 2) return null;
-
-  const parseRow = (line) => {
-    const result = [];
-    let cur = '', inQuote = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') {
-        if (inQuote && line[i+1] === '"') { cur += '"'; i++; }
-        else inQuote = !inQuote;
-      } else if (c === ',' && !inQuote) { result.push(cur); cur = ''; }
-      else cur += c;
-    }
-    result.push(cur);
-    return result;
-  };
-
-  const headers = parseRow(lines[0]);
-  return lines.slice(1).map(line => {
-    const vals = parseRow(line);
-    const obj = {};
-    headers.forEach((h,i) => { obj[h.trim()] = (vals[i]||'').trim(); });
-    return obj;
-  }).filter(r => r['id'] || r['客戶編號']);
-}
-
-function previewCSV() {
-  const file = document.getElementById('csvFileInput')?.files[0];
-  const preview = document.getElementById('importPreview');
-  if (!file || !preview) return;
-
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const rows = parseCSV(e.target.result);
-    if (!rows) { preview.innerHTML='<span style="color:#f87171">CSV格式錯誤，請確認檔案格式</span>'; preview.style.display='block'; return; }
-    preview.innerHTML = `<b style="color:var(--teal)">預覽：共 ${rows.length} 筆資料</b><br>` +
-      rows.slice(0,5).map(r => `• ${r['id']||r['客戶編號']||'?'} ${r['name']||r['店家名稱/暱稱']||''}`).join('<br>') +
-      (rows.length > 5 ? `<br><span style="color:var(--text-dim)">...還有 ${rows.length-5} 筆</span>` : '');
-    preview.style.display = 'block';
-  };
-  reader.readAsText(file, 'UTF-8');
-}
 
 async function doImportCSV() {
   if (currentUser?.role !== 'admin') { toast('批量匯入僅限管理者','error'); return; }
@@ -1714,6 +1636,17 @@ async function doImportCSV() {
 // ══════════════════════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// 查詢手冊側欄
+// ══════════════════════════════════════════════
+function toggleGuide(){
+  const sidebar = document.getElementById('guideSidebar');
+  const btn     = document.getElementById('guideToggle');
+  if (!sidebar) return;
+  sidebar.classList.toggle('open');
+  if (btn) btn.style.background = sidebar.classList.contains('open') ? 'rgba(26,122,110,.2)' : '';
+}
+
 function toast(msg,type){
   type=type||'info';
   const c=document.getElementById('toastContainer');
